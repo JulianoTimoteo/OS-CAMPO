@@ -374,7 +374,7 @@
             </label>
             <button id="loginButton" class="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white p-3 rounded-xl shadow-md hover:from-blue-700 hover:to-blue-800 transition duration-300 transform hover:scale-105">Entrar</button>
             <p id="erro" class="text-red-500 mt-4 hidden text-center">Usuário ou senha inválidos</p>
-            <button id="requestLoginButton" class="mt-8 px-6 py-3 bg-gradient-to-r from-[#40800c] to-[#356a0a] text-white font-semibold rounded-xl shadow-md hover:from-[#356a0c] hover:to-[#40800c] transition duration-300 transform hover:scale-105">Solicitar Login</button>
+            <button id="requestLoginButton" class="mt-8 px-6 py-3 bg-gradient-to-r from-[#40800c] to-[#356a0c] text-white font-semibold rounded-xl shadow-md hover:from-[#356a0c] hover:to-[#40800c] transition duration-300 transform hover:scale-105">Solicitar Login</button>
         </div>
     </div>
 
@@ -503,6 +503,7 @@
                 <button id="btn-tecnicos" class="tab-btn hidden">Técnicos</button>
             </div>
             <div class="flex space-x-2 items-center">
+                <span id="user-display" class="text-gray-700 text-sm mr-4"></span> <!-- Added user-display element -->
                 <button id="headerChangePasswordButton" class="btn-header-action">Trocar Senha</button>
                 <button id="headerLogoutButton" class="btn-header-action">Sair</button>
             </div>
@@ -673,7 +674,7 @@
         // SUA CONFIGURAÇÃO DO FIREBASE (PROJETO "os-campo-4acdd")
         // Esta configuração será usada para se conectar ao seu projeto Firebase pessoal.
         const firebaseConfig = {
-            apiKey: "AIzaSyDU7gti52cc2cO77lZLsC2fEYPWhKvE_Jo",
+            apiKey: "AIzaSyDU7gti52cc2cO77lZLsC2fEYPWhKvE_Jo", // <-- CHAVE DE API CORRIGIDA AQUI!
             authDomain: "os-campo-4acdd.firebaseapp.com",
             projectId: "os-campo-4acdd",
             storageBucket: "os-campo-4acdd.firebasestorage.app",
@@ -1038,6 +1039,36 @@
         let frontsListenerUnsubscribe = null;
         let callsListenerUnsubscribe = null;
 
+        // Function to update UI elements based on user level
+        function updateUIBasedOnUserLevel() {
+            const btnUsuarios = document.getElementById("btn-usuarios");
+            const btnFrentes = document.getElementById("btn-frentes");
+            const btnChamados = document.getElementById("btn-chamados");
+            const btnTecnicos = document.getElementById("btn-tecnicos");
+            const frontManagementSection = document.getElementById('frontManagementSection');
+
+            // Hide all tabs by default
+            if (btnUsuarios) btnUsuarios.classList.add("hidden");
+            if (btnFrentes) btnFrentes.classList.add("hidden");
+            if (btnChamados) btnChamados.classList.add("hidden");
+            if (btnTecnicos) btnTecnicos.classList.add("hidden");
+            if (frontManagementSection) frontManagementSection.classList.add('hidden');
+
+            if (loggedInUser) {
+                if (hasManagerPrivileges()) { // Gestor or Master
+                    if (btnUsuarios) btnUsuarios.classList.remove("hidden");
+                    if (btnFrentes) btnFrentes.classList.remove("hidden");
+                    if (btnChamados) btnChamados.classList.remove("hidden");
+                    if (btnTecnicos) btnTecnicos.classList.remove("hidden");
+                    if (frontManagementSection) frontManagementSection.classList.remove('hidden');
+                } else if (loggedInUser.nivel === "Solicitante") {
+                    if (btnChamados) btnChamados.classList.remove("hidden");
+                } else if (loggedInUser.nivel === "Tecnico") {
+                    if (btnTecnicos) btnTecnicos.classList.remove("hidden");
+                }
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             // Set the current date and time of the device for the call opening field
             const now = new Date();
@@ -1078,10 +1109,7 @@
                                 .catch(e => console.error("ERROR DEBUG: Falha ao adicionar usuário padrão:", e));
                         }
 
-                        // 2. Fetch user data for the current authenticated user
-                        await fetchUserData(user.uid);
-
-                        // 3. Try to auto-login or show the form, now that 'users' is populated
+                        // 2. Try to auto-login or show the form, now that 'users' is populated
                         const saved = localStorage.getItem("salvo");
                         // Only attempt auto-login if saved credentials exist AND the user is not yet fully logged in (loggedInUser is null)
                         if (saved && !loggedInUser) { 
@@ -1098,6 +1126,9 @@
                             if (loginForm) loginForm.classList.remove("hidden");
                             if (telas) telas.classList.add("hidden");
                         }
+
+                        // 3. Fetch user data for the current authenticated user (just for display)
+                        fetchUserData(); // No uid parameter needed here anymore
 
                         // 4. Initialize other Firestore listeners (calls, fronts)
                         initializeOtherFirestoreListeners(); // New function for other listeners
@@ -1136,6 +1167,9 @@
                     if (listaFrentes) listaFrentes.innerHTML = "";
                     if (technicianDashboard) technicianDashboard.innerHTML = "";
                     if (solicitanteDashboard) solicitanteDashboard.innerHTML = ""; // Clear solicitante dashboard
+                    
+                    // Update user display to reflect logged out state
+                    fetchUserData();
 
                     // If no user is logged in, try anonymous login
                     try {
@@ -1447,30 +1481,27 @@
         }
 
 
-        async function fetchUserData(uid) {
+        async function fetchUserData() { // Removed uid parameter
             try {
-                console.log("DEBUG: Attempting to fetch user data for UID:", uid);
-                const userDocRef = doc(db, `users`, uid);
-                const userDocSnap = await getDoc(userDocRef);
-                const userDisplayElement = document.getElementById('user-display'); // Get element here
-                if (userDocSnap.exists()) {
-                    const userData = userDocSnap.data();
-                    loggedInUser = { id: uid, ...userData }; // Store the full user data
-                    userLevel = userData.nivel;
-                    if (userDisplayElement) { // Check before setting textContent
-                        userDisplayElement.textContent = `Usuário: ${userData.username} (${userLevel}) | ID: ${uid}`;
+                const userDisplayElement = document.getElementById('user-display'); 
+
+                if (loggedInUser) { // If a user has successfully logged in via your custom logic
+                    if (userDisplayElement) { 
+                        userDisplayElement.textContent = `Usuário: ${loggedInUser.usuario} (${loggedInUser.nivel}) | ID: ${loggedInUser.idUnico}`; // Display internal ID
                     }
-                    console.log("DEBUG: User data fetched successfully:", loggedInUser);
-                    updateUIBasedOnUserLevel();
-                } else {
-                    loggedInUser = null; // User not found in 'users' collection
-                    userLevel = null;
-                    if (userDisplayElement) { // Check before setting textContent
-                        userDisplayElement.textContent = `Usuário: ${uid} (Nível Desconhecido)`;
+                    console.log("DEBUG: User data displayed from loggedInUser:", loggedInUser);
+                } else if (currentUser) { // If Firebase Auth user exists but no custom login (e.g., anonymous)
+                    if (userDisplayElement) { 
+                        userDisplayElement.textContent = `Usuário: ${currentUser.uid} (Nível Desconhecido)`; // Display Firebase UID
                     }
-                    console.log("DEBUG: User data not found in 'users' collection for UID:", uid);
-                    updateUIBasedOnUserLevel();
+                    console.log("DEBUG: User data not found in 'users' collection for Firebase UID:", currentUser.uid);
+                } else { // No user at all
+                    if (userDisplayElement) { 
+                        userDisplayElement.textContent = `Usuário: Não Logado`;
+                    }
+                    console.log("DEBUG: No user logged in.");
                 }
+                updateUIBasedOnUserLevel(); // This function still depends on loggedInUser
             } catch (error) {
                 console.error("ERROR DEBUG: Erro ao buscar dados do usuário:", error);
                 showMessage("Erro", `Erro ao carregar dados do usuário: ${error.message}`);
@@ -1641,7 +1672,7 @@
 
             } catch (error) {
                 console.error(`ERROR DEBUG: Erro ao enviar chamado ${chamado.os} para o Firestore:`, error);
-                showMessage("Erro ao Salvar", `Erro ao salvar chamado ${chamado.os} no Firestore. Verifique a conexão e as permissões.`);
+                showMessage("Erro ao Salvar", `Erro ao salvar chamado ${os} no Firestore. Verifique a conexão e as permissões.`);
             } finally {
                 if (btnAbrirChamado) btnAbrirChamado.disabled = false;
                 if (btnSpinner) btnSpinner.classList.add('hidden');
@@ -2438,7 +2469,6 @@
                     } else {
                         rowHtml += `<span class='col-span-1 text-right'></span>`; // Empty if no privileges
                     }
-                    rowHtml += `</div>`;
                     if (listaUsuarios) listaUsuarios.innerHTML += rowHtml;
                 });
             } else {
@@ -2666,7 +2696,7 @@
 
             if (btnCriarSalvarFrente) {
                 btnCriarSalvarFrente.innerText = "Criar Equipe"; // Changed to Equipe
-                btnCriarSalvarFrente.classList.remove("bg-blue-600");
+                btnCriarSalvarFrente.classList.remove("bg-purple-600");
                 btnCriarSalvarFrente.classList.add("bg-purple-600");
             }
             if (btnCancelarEdicaoFrente) btnCancelarEdicaoFrente.classList.add("hidden");
