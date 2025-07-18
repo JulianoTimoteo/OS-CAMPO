@@ -403,7 +403,7 @@
         </div>
     </div>
 
-    <div id="trocarSenhaModal" class="hidden fixed inset-0 bg-black bg-opacity50 flex items-center justify-center z-50">
+    <div id="trocarSenhaModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div class="bg-white p-6 rounded shadow-md w-full max-w-sm">
             <h2 class="text-xl font-semibold mb-4">Trocar Senha</h2>
             <div class="password-container mb-2">
@@ -470,7 +470,7 @@
             <div class="flex justify-end mb-2">
                 <button id="closeImageModal" class="text-gray-600 hover:text-gray-900 text-2xl font-bold">&times;</button>
             </div>
-            <img id="modalImage" src="" alt="Call Image" class="max-w-full max-h-full object-contain mx-auto" />
+            <img id="modalImage" src="" alt="Call Image" class="max-w-full h-auto object-contain mx-auto" />
         </div>
     </div>
 
@@ -656,16 +656,16 @@
         import {
             getFirestore,
             collection,
-            getDocs, // Kept for initial load, but onSnapshot will be primary
-            setDoc, // Used for custom IDs
+            getDocs,
+            setDoc,
             deleteDoc,
             doc,
-            getDoc, // Used to check if a custom ID already exists
+            getDoc,
             query,
             where,
-            onSnapshot // Import onSnapshot for real-time updates
+            onSnapshot
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        // Import Firebase authentication functions
+        // Import Firebase authentication functions (only for anonymous sign-in and signOut)
         import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         // Import Firebase Storage functions
         import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
@@ -674,7 +674,7 @@
         // SUA CONFIGURAÇÃO DO FIREBASE (PROJETO "os-campo-4acdd")
         // Esta configuração será usada para se conectar ao seu projeto Firebase pessoal.
         const firebaseConfig = {
-            apiKey: "AIzaSyDU7gti52cc2cO77lZLsC2fEYPWhKvE_Jo", // <-- CHAVE DE API CORRIGIDA AQUI!
+            apiKey: "AIzaSyDU7gti52cc2cO77lZLsC2fEYPWhKvE_Jo",
             authDomain: "os-campo-4acdd.firebaseapp.com",
             projectId: "os-campo-4acdd",
             storageBucket: "os-campo-4acdd.firebasestorage.app",
@@ -682,22 +682,21 @@
             appId: "1:420289462119:web:e9036fe3141638d88639c2",
             measurementId: "G-S2CW871LYB"
         };
-        // O appId não é mais usado para caminhos de coleção, mas é mantido aqui para referência se necessário em outras lógicas.
-        const appId = firebaseConfig.appId; 
-        console.log("DEBUG: Usando o Project ID do Firebase:", firebaseConfig.projectId); // Log do Project ID
+        // O projectId é usado para referência, mas não para autenticação por e-mail neste modelo.
+        const projectId = firebaseConfig.projectId; 
+        console.log("DEBUG: Usando o Project ID do Firebase:", projectId);
 
 
         // Initialize Firebase with your configuration
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app); // Get the Firestore instance
-        // Configure Firebase Storage with a higher retry time (kept for general robustness, not specific to avatar anymore)
-        const storage = getStorage(app, { maxUploadRetryTime: 120000 }); // Set max retry time to 120 seconds (2 minutes)
+        const storage = getStorage(app, { maxUploadRetryTime: 120000 });
         const auth = getAuth(app); // Get the authentication instance
 
 
-        let currentUser = null; // Store the current authenticated user object
-        let userLevel = null; // Store the user's access level (Técnico, Gestor, Master)
-        let initialCallsLoadComplete = false; // NEW: Flag to prevent notifications on initial calls load
+        let currentUser = null; // Stores the current authenticated user object from Firebase Auth (e.g., anonymous user)
+        let loggedInUser = null; // Stores the user data from Firestore (your custom user profile, determined by custom login)
+        let initialCallsLoadComplete = false; // Flag to prevent notifications on initial calls load
 
         // WhatsApp number to send requests to (format: 55<DDD><NUMBER>)
         const targetWhatsappNumber = "5516992886004"; 
@@ -707,7 +706,6 @@
         let users = []; // Will be loaded from Firestore
         let chamados = []; // Will be loaded from Firestore
         let frentes = []; // Will be loaded from Firestore
-        let loggedInUser = null;
         let speechRecognition;
         let editingUserIndex = -1; // -1 means creation mode, >=0 means edit mode (user index)
         let editingFrontIndex = -1; // -1 means creation mode, >=0 means edit mode (front index)
@@ -801,7 +799,7 @@
         let editingEquipmentData = {
             originalFrontName: null,
             originalEquipmentIndex: -1,
-            originalFrota: null // To help with duplicate checks
+            originalFrota: null
         };
 
         // Hardcoded colors for equipment types
@@ -855,9 +853,9 @@
         }
 
         // Function to get the CSS style for an equipment type, including text color
-        function getEquipmentColorStyle(type, customBgColor = null) { // Removed customTextColor parameter
+        function getEquipmentColorStyle(type, customBgColor = null) {
             const bgColor = customBgColor || hardcodedEquipmentColors[type] || hardcodedEquipmentColors['Default'];
-            const textColor = getContrastTextColor(bgColor); // Always calculate contrast text color
+            const textColor = getContrastTextColor(bgColor);
             
             return `background-color: ${bgColor}; color: ${textColor};`;
         }
@@ -874,7 +872,6 @@
         }
 
         // FUNCTION: Format date and time to save to Firestore (DD/MM/YYYY HH:MM:SS)
-        // This function now simply formats the provided Date object (which should already be in local time)
         function formatDateForFirestoreSave(date) {
             if (!date) return '';
 
@@ -955,13 +952,13 @@
             confirmCallback = callback;
 
             if (confirmModalYes) {
-                confirmModalYes.onclick = () => { // Use onclick to prevent multiple listeners
+                confirmModalYes.onclick = () => {
                     if (confirmModal) confirmModal.classList.add('hidden');
                     if (confirmCallback) confirmCallback(true);
                 };
             }
             if (confirmModalNo) {
-                confirmModalNo.onclick = () => { // Use onclick to prevent multiple listeners
+                confirmModalNo.onclick = () => {
                     if (confirmModal) confirmModal.classList.add('hidden');
                     if (confirmCallback) confirmCallback(false);
                 };
@@ -980,7 +977,7 @@
                 let itemHtml = `<strong>OS:</strong> ${call.os}<br>`;
                 itemHtml += `<strong>Abertura:</strong> ${call.dataAbertura}<br>`;
                 itemHtml += `<strong>Frota:</strong> ${call.frota}<br>`;
-                itemHtml += `<strong>Equipe:</strong> ${call.frente}<br>`; // Changed to Equipe
+                itemHtml += `<strong>Equipe:</strong> ${call.frente}<br>`;
                 itemHtml += `<strong>Descrição:</strong> ${call.descricao}<br>`;
                 itemHtml += `<strong>Status:</strong> ${call.status}`;
 
@@ -1083,33 +1080,33 @@
             if (loginForm) loginForm.classList.remove("hidden");
             if (telas) telas.classList.add("hidden");
 
-            // Listener for authentication state changes
+            // Listener for Firebase authentication state changes (primarily for anonymous user for Firestore rules)
             onAuthStateChanged(auth, async (user) => {
-                console.log("DEBUG: onAuthStateChanged triggered. User:", user ? user.uid : "null (or not yet signed in)"); // Log authentication state
+                console.log("DEBUG: onAuthStateChanged triggered. User:", user ? user.uid : "null (or not yet signed in)");
                 if (user) {
-                    currentUser = user; // Set currentUser here
+                    currentUser = user; // Set currentUser (Firebase Auth user, likely anonymous)
                     console.log("DEBUG: Firebase Auth State Changed - User is signed in:", user.uid);
                     
-                    // --- NEW FLOW START ---
-                    // 1. Set up users listener immediately to ensure 'users' array is populated
-                    //    before any logic that depends on it (like loginUserFromSavedCredentials)
-                    //    This listener will also trigger fetchUserData and subsequent listeners
-                    //    once 'users' data is available.
-                    if (usersListenerUnsubscribe) { usersListenerUnsubscribe(); usersListenerUnsubscribe = null; } // Unsubscribe previous
+                    // Set up users listener immediately to ensure 'users' array is populated
+                    if (usersListenerUnsubscribe) { usersListenerUnsubscribe(); usersListenerUnsubscribe = null; }
                     usersListenerUnsubscribe = onSnapshot(collection(db, `users`), async (snapshot) => {
                         users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                         console.log("DEBUG: Usuários atualizados via onSnapshot (first listener):", users);
 
                         // If the Master user does not exist, add the default one (only on initial load)
-                        if (!users.some(u => u.id && u.id.toLowerCase() === "julianotimoteo")) {
-                            console.log("DEBUG: Usuário Master não encontrado. Adicionando padrão.");
-                            const defaultUser = { nome: "Juliano Timóteo da Silva", idUnico: "239410", usuario: "julianotimoteo", senha: "tmotvini1986@#", nivel: "Gestor", ativo: true };
-                            await setDoc(doc(db, `users`, defaultUser.usuario), defaultUser)
-                                .then(() => console.log("DEBUG: Usuário padrão 'julianotimoteo' adicionado."))
-                                .catch(e => console.error("ERROR DEBUG: Falha ao adicionar usuário padrão:", e));
+                        const defaultUser = { nome: "Juliano Timóteo da Silva", idUnico: "239410", usuario: "julianotimoteo", senha: "tmotvini1986@#", nivel: "Gestor", ativo: true };
+                        if (!users.some(u => u.usuario.toLowerCase() === defaultUser.usuario.toLowerCase())) { // Compare in lowercase
+                            console.log("DEBUG: Usuário Master não encontrado. Adicionando padrão ao Firestore.");
+                            try {
+                                // Add the default user to Firestore, using 'usuario' (lowercase) as the document ID
+                                await setDoc(doc(db, `users`, defaultUser.usuario.toLowerCase()), { ...defaultUser, id: defaultUser.usuario.toLowerCase() });
+                                console.log("DEBUG: Usuário padrão 'julianotimoteo' adicionado ao Firestore.");
+                            } catch (e) {
+                                console.error("ERROR DEBUG: Falha ao adicionar usuário padrão no Firestore:", e);
+                            }
                         }
 
-                        // 2. Try to auto-login or show the form, now that 'users' is populated
+                        // Try to auto-login or show the form, now that 'users' is populated
                         const saved = localStorage.getItem("salvo");
                         // Only attempt auto-login if saved credentials exist AND the user is not yet fully logged in (loggedInUser is null)
                         if (saved && !loggedInUser) { 
@@ -1127,11 +1124,11 @@
                             if (telas) telas.classList.add("hidden");
                         }
 
-                        // 3. Fetch user data for the current authenticated user (just for display)
-                        fetchUserData(); // No uid parameter needed here anymore
+                        // Fetch user data for display (will use loggedInUser if set, otherwise currentUser.uid)
+                        fetchUserData();
 
-                        // 4. Initialize other Firestore listeners (calls, fronts)
-                        initializeOtherFirestoreListeners(); // New function for other listeners
+                        // Initialize other Firestore listeners (calls, fronts)
+                        initializeOtherFirestoreListeners();
 
                         // Only list users if the 'usuarios' tab is currently active
                         const usuariosTab = document.getElementById('usuarios');
@@ -1144,14 +1141,11 @@
                         console.error("DEBUG: Current auth user for users listener error:", auth.currentUser ? auth.currentUser.uid : "null");
                         showMessage("Erro de Conexão", "Erro ao carregar usuários em tempo real. Verifique as regras de segurança ou sua conexão.");
                     });
-                    // --- NEW FLOW END ---
 
                 } else {
-                    currentUser = null; // Ensure currentUser is null on logout
-                    userLevel = null; // Ensure userLevel is null on logout
+                    currentUser = null;
                     console.log("DEBUG: Firebase Auth State Changed - User is signed out or not yet signed in. Attempting anonymous sign-in.");
                     loggedInUser = null; // Ensure loggedInUser is null on logout
-                    // Clear all existing intervals (countdowns)
                     activeCountdowns.forEach(intervalId => clearInterval(intervalId));
                     activeCountdowns.clear();
 
@@ -1166,30 +1160,23 @@
                     if (listaUsuarios) listaUsuarios.innerHTML = "";
                     if (listaFrentes) listaFrentes.innerHTML = "";
                     if (technicianDashboard) technicianDashboard.innerHTML = "";
-                    if (solicitanteDashboard) solicitanteDashboard.innerHTML = ""; // Clear solicitante dashboard
+                    if (solicitanteDashboard) solicitanteDashboard.innerHTML = "";
                     
-                    // Update user display to reflect logged out state
-                    fetchUserData();
+                    fetchUserData(); // Update user display to reflect logged out state
 
-                    // If no user is logged in, try anonymous login
+                    // If no user is logged in, try anonymous login to enable Firestore access
                     try {
                         await signInAnonymously(auth);
                         console.log("DEBUG: Signed in anonymously.");
-                        // After anonymous sign-in, the onAuthStateChanged will trigger again,
-                        // but since there are no saved credentials, it will show the login form.
                     } catch (anonError) {
                         console.error("Error signing in anonymously:", anonError);
                         showMessage("Erro de Autenticação", "Não foi possível autenticar com o Firebase. Verifique sua conexão.");
-                        // If even anonymous login fails, show the login form with an an error
-                        if (loginForm) loginForm.classList.remove("hidden");
-                        if (telas) telas.classList.add("hidden");
                     }
                     // Ensure login form is visible if no user is logged in (including after anonymous sign-in if no auto-login)
                     if (loginForm) loginForm.classList.remove("hidden");
                     if (telas) telas.classList.add("hidden");
                 }
             });
-            // --- END: Firebase Initialization and Authentication ---
 
 
             // Add event listeners for HTML elements
@@ -1246,7 +1233,7 @@
             novaFrenteNomeInput?.addEventListener('keydown', (event) => { if(event.key === 'Enter') criarOuSalvarFrente(); });
             novoTipoFrotaInput?.addEventListener('keydown', (event) => { if(event.key === 'Enter') addEquipmentToSelectedFront(); });
             novaFrotaIdInput?.addEventListener('keydown', (event) => { if(event.key === 'Enter') addEquipmentToSelectedFront(); });
-            btnAddEquipmentToSelectedFront?.addEventListener('click', addEquipmentToSelectedFront); // Renamed button
+            btnAddEquipmentToSelectedFront?.addEventListener('click', addEquipmentToSelectedFront);
             btnCriarSalvarFrente?.addEventListener('click', criarOuSalvarFrente);
             btnCancelarEdicaoFrente?.addEventListener('click', cancelarEdicaoFrente);
 
@@ -1255,7 +1242,7 @@
                 const target = event.target;
                 const action = target.dataset.action;
                 const os = target.dataset.os;
-                const imageIndex = target.dataset.imageIndex; // For images
+                const imageIndex = target.dataset.imageIndex;
 
                 if (os && action) {
                     switch (action) {
@@ -1268,7 +1255,7 @@
                         case 'finalizar':
                             finalizarChamado(os);
                             break;
-                        case 'viewImage': // New case for viewing image
+                        case 'viewImage':
                             viewImage(os, parseInt(imageIndex));
                             break;
                     }
@@ -1304,7 +1291,6 @@
             // Event listener for "View More Chamados" button
             verMaisChamadosBtn?.addEventListener('click', () => {
                 showMessage("Funcionalidade em Desenvolvimento", "A opção para ver mais chamados antigos está em desenvolvimento.");
-                // Here you would implement the logic to load and display more calls
             });
 
             // Event listeners for Users tab pagination and search
@@ -1319,7 +1305,7 @@
                     listarUsuarios();
                 }
             });
-            document.getElementById('nextUserPageBtn')?.addEventListener('click', () => { 
+            document.getElementById('nextUserPageBtn')?.addEventListener('click', () => {
                 if (currentUserPage < totalUserPages) {
                     currentUserPage++;
                     listarUsuarios();
@@ -1333,7 +1319,7 @@
                     listarFrentes();
                 }
             });
-            document.getElementById('nextFrontPageBtn')?.addEventListener('click', () => { 
+            document.getElementById('nextFrontPageBtn')?.addEventListener('click', () => {
                 if (currentFrontPage < totalFrontPages) {
                     currentFrontPage++;
                     listarFrentes();
@@ -1344,11 +1330,10 @@
             frontFilterButtonsContainer?.addEventListener('click', (event) => {
                 const target = event.target;
                 if (target.classList.contains('filter-btn')) {
-                    currentFrontFilter = target.dataset.filter;
-                    listarFrentes(); // Re-render fronts with new filter
-                    // Update active class
                     document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
                     target.classList.add('active');
+                    currentFrontFilter = target.dataset.filter;
+                    listarFrentes(); // Re-render fronts with new filter
                 }
             });
 
@@ -1357,7 +1342,7 @@
             listaUsuarios?.addEventListener('click', (event) => {
                 const target = event.target;
                 const action = target.dataset.action;
-                const index = parseInt(target.dataset.index); // Parse index as integer
+                const index = parseInt(target.dataset.index);
 
                 if (!isNaN(index) && action) {
                     switch (action) {
@@ -1375,8 +1360,8 @@
             listaFrentes?.addEventListener('click', (event) => {
                 const target = event.target;
                 const action = target.dataset.action;
-                const frontIndex = parseInt(target.dataset.frontIndex); // Index of the front
-                const equipmentIndex = parseInt(target.dataset.equipmentIndex); // Index of the equipment within the front
+                const frontIndex = parseInt(target.dataset.frontIndex);
+                const equipmentIndex = parseInt(target.dataset.equipmentIndex);
 
                 if (action === 'editarEquipamento' && !isNaN(frontIndex) && !isNaN(equipmentIndex)) {
                     editarEquipamento(frontIndex, equipmentIndex);
@@ -1427,26 +1412,22 @@
                     snapshot.docChanges().forEach(change => {
                         const changedCall = { id: change.doc.id, ...change.doc.data() };
                         if (change.type === "added") {
-                            // This is a new call
                             showMessage("Novo Chamado!", `O chamado OS${changedCall.os} foi aberto por ${changedCall.solicitante}.`);
                         } else if (change.type === "modified") {
-                            // This call was updated
                             showMessage("Chamado Atualizado!", `O chamado OS${changedCall.os} foi atualizado. Status: ${changedCall.status}.`);
                         }
                     });
                 } else {
-                    // After the first snapshot, set the flag to true
                     initialCallsLoadComplete = true;
                 }
 
                 // Update the local chamados array AFTER processing changes for notifications
-                chamados = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })); // doc.id is now the OS
+                chamados = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 console.log("DEBUG: Chamados atualizados via onSnapshot:", chamados);
                 atualizarChamados(); // Update the call list and dashboard
             }, (error) => {
                 console.error("ERROR DEBUG: Error listening to calls from Firestore:", error);
-                console.error("DEBUG: Current auth user for calls listener error:", auth.currentUser ? auth.currentUser.uid : "null"); // Added for debugging
-                // Only show message if the user is supposed to have access
+                console.error("DEBUG: Current auth user for calls listener error:", auth.currentUser ? auth.currentUser.uid : "null");
                 if (loggedInUser) {
                     showMessage("Erro de Conexão", "Erro ao carregar chamados em tempo real. Verifique as regras de segurança ou sua conexão.");
                 }
@@ -1455,25 +1436,24 @@
             // Fronts Collection Listener
             const frontsCollectionPath = `fronts`;
             frontsListenerUnsubscribe = onSnapshot(collection(db, frontsCollectionPath), (snapshot) => {
-                frentes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })); // doc.id is now the front name
-                frentes.sort((a, b) => a.id.localeCompare(b.id)); // Sort by front name (which is now 'id')
+                frentes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                frentes.sort((a, b) => a.id.localeCompare(b.id));
                 console.log("DEBUG: Frentes atualizadas via onSnapshot:", frentes);
                 // Populate selects for Chamados tab and new equipment addition
-                if (frenteSelect) frenteSelect.innerHTML = '<option value="">Selecionar Equipe</option>'; // Changed to Equipe
-                if (targetFrenteSelect) targetFrenteSelect.innerHTML = '<option value="">Selecionar Equipe de Destino</option>'; // New select
+                if (frenteSelect) frenteSelect.innerHTML = '<option value="">Selecionar Equipe</option>';
+                if (targetFrenteSelect) targetFrenteSelect.innerHTML = '<option value="">Selecionar Equipe de Destino</option>';
                 frentes.forEach(frente => {
                     const option = document.createElement('option');
                     option.value = frente.name;
                     option.innerText = frente.name;
                     if (frenteSelect) frenteSelect.appendChild(option);
-                    if (targetFrenteSelect) targetFrenteSelect.appendChild(option.cloneNode(true)); // Clone for the new select
+                    if (targetFrenteSelect) targetFrenteSelect.appendChild(option.cloneNode(true));
                 });
-                listarFrentes(); // Update the front list in the UI
-                populateTipoFrotaSelect(); // Re-populate fleet selects
+                listarFrentes();
+                populateTipoFrotaSelect();
             }, (error) => {
                 console.error("ERROR DEBUG: Error listening to fronts from Firestore:", error);
-                console.error("DEBUG: Current auth user for fronts listener error:", auth.currentUser ? auth.currentUser.uid : "null"); // Added for debugging
-                // Only show message if the user is supposed to have access
+                console.error("DEBUG: Current auth user for fronts listener error:", auth.currentUser ? auth.currentUser.uid : "null");
                 if (loggedInUser) {
                     showMessage("Erro de Conexão", "Erro ao carregar frentes em tempo real. Verifique as regras de segurança ou sua conexão.");
                 }
@@ -1481,27 +1461,27 @@
         }
 
 
-        async function fetchUserData() { // Removed uid parameter
+        async function fetchUserData() {
             try {
                 const userDisplayElement = document.getElementById('user-display'); 
 
-                if (loggedInUser) { // If a user has successfully logged in via your custom logic
+                if (loggedInUser) {
                     if (userDisplayElement) { 
-                        userDisplayElement.textContent = `Usuário: ${loggedInUser.usuario} (${loggedInUser.nivel}) | ID: ${loggedInUser.idUnico}`; // Display internal ID
+                        userDisplayElement.textContent = `Usuário: ${loggedInUser.usuario} (${loggedInUser.nivel}) | ID: ${loggedInUser.idUnico}`;
                     }
                     console.log("DEBUG: User data displayed from loggedInUser:", loggedInUser);
-                } else if (currentUser) { // If Firebase Auth user exists but no custom login (e.g., anonymous)
+                } else if (currentUser) {
                     if (userDisplayElement) { 
-                        userDisplayElement.textContent = `Usuário: ${currentUser.uid} (Nível Desconhecido)`; // Display Firebase UID
+                        userDisplayElement.textContent = `Usuário: ${currentUser.uid} (Nível Desconhecido)`;
                     }
                     console.log("DEBUG: User data not found in 'users' collection for Firebase UID:", currentUser.uid);
-                } else { // No user at all
+                } else {
                     if (userDisplayElement) { 
                         userDisplayElement.textContent = `Usuário: Não Logado`;
                     }
                     console.log("DEBUG: No user logged in.");
                 }
-                updateUIBasedOnUserLevel(); // This function still depends on loggedInUser
+                updateUIBasedOnUserLevel();
             } catch (error) {
                 console.error("ERROR DEBUG: Erro ao buscar dados do usuário:", error);
                 showMessage("Erro", `Erro ao carregar dados do usuário: ${error.message}`);
@@ -1532,10 +1512,8 @@
                 return;
             }
 
-            // Save the request to Firestore in the public path
             try {
-                // Using appId to construct the public collection path
-                await setDoc(doc(db, `loginRequests`, crypto.randomUUID()), { // Use randomUUID for login requests
+                await setDoc(doc(db, `loginRequests`, crypto.randomUUID()), {
                     nomeCompleto: nome,
                     idUsina: idUsina,
                     telefone: telefone,
@@ -1547,10 +1525,9 @@
             } catch (error) {
                 console.error("ERROR DEBUG: Erro ao salvar solicitação de login no Firestore:", error);
                 showMessage("Erro ao Salvar", "Erro ao salvar sua solicitação. Por favor, verifique sua conexão e as regras de segurança do Firestore. Detalhes: " + error.message);
-                return; // Prevent WhatsApp from opening if saving fails
+                return;
             }
 
-            // Open WhatsApp with the pre-filled message
             const message = encodeURIComponent(`Nova Solicitação de Acesso:\n\nNome Completo: ${nome}\nID da Usina: ${idUsina}\nTelefone: ${telefone}\n\nPor favor, crie um login para este solicitante.`);
             const whatsappUrl = `https://wa.me/${targetWhatsappNumber}?text=${message}`;
             
@@ -1570,12 +1547,10 @@
             const descricao = document.getElementById("descricao")?.value.trim();
             
             if (!data || !frenteSelecionada || !tipoFrotaSelecionado || !frotaSelecionada || !descricao) {
-                showMessage("Campos Obrigatórios", "Todos os campos (Data, Equipe, Tipo de Equipamento, Frota/ID, Descrição) são obrigatórios."); // Changed to Equipe
+                showMessage("Campos Obrigatórios", "Todos os campos (Data, Equipe, Tipo de Equipamento, Frota/ID, Descrição) são obrigatórios.");
                 return;
             }
 
-            // --- New Fleet Verification Logic ---
-            // No need to load calls here, as onSnapshot already keeps them updated
             const activeCallsForFrota = chamados.filter(c => 
                 String(c.frota || '').toLowerCase().trim() === frotaSelecionada.toLowerCase().trim() && 
                 c.status !== "Encerrado"
@@ -1587,9 +1562,9 @@
                     `Existem chamados ativos para a frota ${frotaSelecionada}. Por favor, verifique:`,
                     activeCallsForFrota,
                     'active',
-                    () => proceedToOpenNewCall(data, frenteSelecionada, tipoFrotaSelecionado, frotaSelecionada, descricao) // Callback to open anyway
+                    () => proceedToOpenNewCall(data, frenteSelecionada, tipoFrotaSelecionado, frotaSelecionada, descricao)
                 );
-                return; // Prevent call opening
+                return;
             }
 
             const now = new Date();
@@ -1609,11 +1584,9 @@
                     recentlyClosedCallsForFrota,
                     'reopen'
                 );
-                return; // Prevent call opening
+                return;
             }
-            // --- End of New Fleet Verification Logic ---
 
-            // If no active or recently closed calls, proceed with opening
             proceedToOpenNewCall(data, frenteSelecionada, tipoFrotaSelecionado, frotaSelecionada, descricao);
         }
 
@@ -1621,23 +1594,22 @@
             const osNumber = `OS${(Math.floor(Math.random() * 999999) + 1).toString().padStart(6, '0')}`;
             const chamado = {
                 os: osNumber,
-                dataAbertura: formatDateForFirestoreSave(new Date(data)), // Save in new format
+                dataAbertura: formatDateForFirestoreSave(new Date(data)),
                 frente,
-                tipoFrota, // New field
-                frota, // Now comes from select
+                tipoFrota,
+                frota,
                 descricao,
                 status: "Aberto",
-                solicitante: loggedInUser?.usuario.toLowerCase().trim(), // Normalize requester name when saving
+                solicitante: loggedInUser?.usuario.toLowerCase().trim(),
                 tecnicoResponsavel: null,
                 motivoPausa: null,
                 historicoPausas: [],
                 dataEncerramento: null,
-                imagens: selectedImages, // Add selected images
-                reopenedBy: null // New field for who reopened the call
+                imagens: selectedImages,
+                reopenedBy: null
             };
             
             try {
-                // Check if OS already exists
                 const callDocRef = doc(db, `calls`, chamado.os);
                 const docSnap = await getDoc(callDocRef);
                 if (docSnap.exists()) {
@@ -1645,45 +1617,38 @@
                     return;
                 }
 
-                // Disable button and show spinner
                 if (btnAbrirChamado) btnAbrirChamado.disabled = true;
                 if (btnSpinner) btnSpinner.classList.remove('hidden');
                 if (btnText) btnText.textContent = 'Enviando...';
 
-                // Add the call to the new path using OS as document ID
                 await setDoc(callDocRef, chamado);
                 console.log(`DEBUG: Chamado ${chamado.os} enviado para o Firestore com ID: ${chamado.os}`);
                 showMessage("Sucesso", `Chamado ${chamado.os} aberto com sucesso!`);
                 
-                // Clear fields after opening the call
                 if (frenteSelect) frenteSelect.value = ""; 
                 if (tipoFrotaSelect) tipoFrotaSelect.value = "";
                 if (frotaSelect) frotaSelect.value = "";
                 if (tipoFrotaSelect) tipoFrotaSelect.disabled = true;
                 if (frotaSelect) frotaSelect.disabled = true;
                 if (document.getElementById("descricao")) document.getElementById("descricao").value = "";
-                // Update the date to the current device time after opening the call
                 const dataInput = document.getElementById("data");
                 if (dataInput) dataInput.value = formatLocalDatetimeForInput(new Date());
                 
-                // Clear selected images and preview
                 selectedImages = [];
                 if (imagePreviewContainer) imagePreviewContainer.innerHTML = '';
 
             } catch (error) {
                 console.error(`ERROR DEBUG: Erro ao enviar chamado ${chamado.os} para o Firestore:`, error);
-                showMessage("Erro ao Salvar", `Erro ao salvar chamado ${os} no Firestore. Verifique a conexão e as permissões.`);
+                showMessage("Erro ao Salvar", `Erro ao salvar chamado ${os}. Verifique a conexão e as permissões.`);
             } finally {
                 if (btnAbrirChamado) btnAbrirChamado.disabled = false;
                 if (btnSpinner) btnSpinner.classList.add('hidden');
                 if (btnText) btnText.textContent = 'Abrir Chamado';
             }
-            // No need to call atualizarChamados() here, onSnapshot will do it automatically
         }
 
         // Function to start the countdown for a specific call
         function startCountdown(os, dataEncerramentoString) {
-            // Clear any existing interval for this OS to avoid duplicates
             if (activeCountdowns.has(os)) {
                 clearInterval(activeCountdowns.get(os));
                 activeCountdowns.delete(os);
@@ -1703,7 +1668,7 @@
 
                 if (remaining <= 0) {
                     if (countdownSpan) countdownSpan.innerText = "00:00:00";
-                    if (reabrirBtn) reabrirBtn.classList.add('hidden'); // Hide the button
+                    if (reabrirBtn) reabrirBtn.classList.add('hidden');
                     clearInterval(activeCountdowns.get(os));
                     activeCountdowns.delete(os);
                 } else {
@@ -1718,8 +1683,7 @@
                     
                     if (countdownSpan) {
                         countdownSpan.innerText = formattedTime;
-                        // Apply urgent styling if less than 1 minute (59 seconds and below)
-                        if (remaining <= 59 * 1000 + 999) { // 59 seconds + 999 ms
+                        if (remaining <= 59 * 1000 + 999) {
                             countdownSpan.classList.add('urgent');
                         } else {
                             countdownSpan.classList.remove('urgent');
@@ -1728,10 +1692,8 @@
                 }
             };
 
-            // Call immediately to set the initial state
             updateDisplay();
 
-            // Set the interval and store its ID
             const intervalId = setInterval(updateDisplay, 1000);
             activeCountdowns.set(os, intervalId);
         }
@@ -1741,12 +1703,10 @@
             console.log("DEBUG: Chamados brutos (chamados array):", chamados);
             console.log("DEBUG: Usuário logado:", loggedInUser ? loggedInUser.usuario : "Nenhum", "Nível:", loggedInUser ? loggedInUser.nivel : "Nenhum");
 
-            // Clear all active countdowns before re-rendering
             activeCountdowns.forEach(intervalId => clearInterval(intervalId));
             activeCountdowns.clear();
 
-            // More robust to clear content
-            if (listaStatusChamado) { // Check if element exists
+            if (listaStatusChamado) {
                 while (listaStatusChamado.firstChild) {
                     listaStatusChamado.removeChild(listaStatusChamado.firstChild);
                 }
@@ -1754,38 +1714,32 @@
                 console.error("ERROR DEBUG: Elemento listaStatusChamado não encontrado!");
             }
             
-            if (listaChamados) { // Check if element exists
-                listaChamados.innerHTML = ""; // For the Technicians tab
+            if (listaChamados) {
+                listaChamados.innerHTML = "";
             } else {
                 console.error("ERROR DEBUG: Elemento listaChamados não encontrado!");
             }
             
-            // Logic for the Solicitante tab (Solicitante/Gestor)
-            // Ensure loggedInUser exists before checking its level
             if (loggedInUser && (loggedInUser.nivel === "Solicitante" || loggedInUser.nivel === "Gestor")) {
                 console.log("DEBUG: Executando lógica para a aba Solicitante. Nível do usuário: " + loggedInUser.nivel);
                 
-                // Render Solicitante Dashboard
                 renderSolicitanteDashboard();
 
-                // For Solicitante/Gestor, display ALL calls
                 const allCalls = chamados;
                 console.log("DEBUG: Total de chamados carregados para a aba Solicitante (allCalls):", allCalls.length);
 
-                // Active calls (Aberto, Assumido, Pausado)
                 const activeCalls = allCalls.filter(c => 
                     c.status === "Aberto" || c.status === "Assumido" || c.status === "Pausado"
                 );
                 console.log("DEBUG: Chamados ativos (Aberto, Assumido, Pausado) para Solicitante/Gestor:", activeCalls.length, activeCalls);
 
-                // Closed calls in the last 24 hours
                 const now = new Date();
                 const twentyFourHours = 24 * 60 * 60 * 1000;
                 const recentlyClosedCalls = allCalls.filter(c => {
                     if (c.status === "Encerrado" && c.dataEncerramento) {
                         const encerradoTime = parseDateString(c.dataEncerramento);
                         const isRecent = encerradoTime && (now.getTime() - encerradoTime.getTime() <= twentyFourHours);
-                        console.log(`DEBUG: Chamado ${c.os} (Encerrado para Solicitante/Gestor?): dataEncerramento=${c.dataEncerramento}, parsedDate=${encerradoTime}, isRecent=${isRecent}`); // Detailed log for each closed call
+                        console.log(`DEBUG: Chamado ${c.os} (Encerrado para Solicitante/Gestor?): dataEncerramento=${c.dataEncerramento}, parsedDate=${encerradoTime}, isRecent=${isRecent}`);
                         return isRecent;
                     }
                     return false;
@@ -1793,65 +1747,59 @@
                 console.log("DEBUG: Chamados recentemente encerrados (últimas 24h) para Solicitante/Gestor:", recentlyClosedCalls.length, recentlyClosedCalls);
 
 
-                // Combine and order calls: active first (most recent), then recently closed (most recent)
                 let combinedChamadosAbaChamados = [
                     ...activeCalls.sort((a, b) => {
                         const dateA = parseDateString(a.dataAbertura) || new Date(0);
                         const dateB = parseDateString(b.dataAbertura) || new Date(0);
-                        return dateB.getTime() - dateA.getTime(); // Most recent first
+                        return dateB.getTime() - dateA.getTime();
                     }),
                     ...recentlyClosedCalls.sort((a, b) => {
                         const dateA = parseDateString(a.dataEncerramento) || new Date(0);
                         const dateB = parseDateString(b.dataEncerramento) || new Date(0);
-                        return dateB.getTime() - dateA.getTime(); // Most recent first
+                        return dateB.getTime() - dateA.getTime();
                     })
                 ];
                 console.log("DEBUG: Chamados combinados para a aba Solicitante (before pagination):", combinedChamadosAbaChamados.length, combinedChamadosAbaChamados);
 
                 filteredCallsForPagination = combinedChamadosAbaChamados;
 
-                // Calculate totalPages and adjust currentPage if necessary
                 totalPages = Math.ceil(filteredCallsForPagination.length / itemsPerPage);
                 if (totalPages === 0) {
-                    currentPage = 0; // If no calls, current page is 0
+                    currentPage = 0;
                 } else if (currentPage === 0 && totalPages > 0) {
-                    currentPage = 1; // If current page is 0 but there are calls, go back to 1
+                    currentPage = 1;
                 } else if (currentPage > totalPages) {
                     currentPage = totalPages;
                 }
 
-                // Update page info text
                 if (pageInfo) pageInfo.innerText = `Página ${currentPage} de ${totalPages}`;
                 if (prevPageBtn) prevPageBtn.disabled = currentPage <= 1;
                 if (nextPageBtn) nextPageBtn.disabled = currentPage >= totalPages;
 
-                // Display pagination controls if there are calls to paginate
                 if (filteredCallsForPagination.length > 0) {
                     if (document.getElementById('paginationControls')) document.getElementById('paginationControls').classList.remove('hidden');
                 } else {
                     if (document.getElementById('paginationControls')) document.getElementById('paginationControls').classList.add('hidden');
                 }
-                if (verMaisChamadosBtn) verMaisChamadosBtn.classList.add('hidden'); // Always hide this button, as pagination covers the need
+                if (verMaisChamadosBtn) verMaisChamadosBtn.classList.add('hidden');
 
-                // Display calls for the current page
                 const startIndex = (currentPage - 1) * itemsPerPage;
                 const endIndex = startIndex + itemsPerPage;
                 const callsToDisplay = filteredCallsForPagination.slice(startIndex, endIndex);
                 
-                // NEW DEBUG LOG: What is actually being displayed
                 console.log("DEBUG: Chamados a serem exibidos para a aba Solicitante (após filtragem e paginação):", callsToDisplay.length, callsToDisplay);
 
                 if (callsToDisplay.length > 0) {
-                    if (listaStatusChamado) listaStatusChamado.innerHTML = ""; // Clear the test message if calls are found
+                    if (listaStatusChamado) listaStatusChamado.innerHTML = "";
                     callsToDisplay.forEach(c => {
-                        console.log("DEBUG: Renderizando chamado para Solicitante:", c.os); // Added this log
+                        console.log("DEBUG: Renderizando chamado para Solicitante:", c.os);
                         let statusHtml = `<div class='call-item bg-blue-100'>`;
                         statusHtml += `<strong>OS:</strong> ${c.os}<br>`;
                         statusHtml += `<strong>Abertura:</strong> ${c.dataAbertura}<br>`;
                         statusHtml += `<strong>Solicitante:</strong> ${c.solicitante}<br>`;
-                        statusHtml += `<strong>Equipe:</strong> ${c.frente}<br>`; // Changed to Equipe
-                        statusHtml += `<strong>Tipo de Equipamento:</strong> ${c.tipoFrota}<br>`; // New field
-                        statusHtml += `<strong>Frota/ID:</strong> ${c.frota}<br>`; // New field
+                        statusHtml += `<strong>Equipe:</strong> ${c.frente}<br>`;
+                        statusHtml += `<strong>Tipo de Equipamento:</strong> ${c.tipoFrota}<br>`;
+                        statusHtml += `<strong>Frota/ID:</strong> ${c.frota}<br>`;
                         statusHtml += `<strong>Descrição:</strong> ${c.descricao}`;
 
                         if (c.tecnicoResponsavel) {
@@ -1866,7 +1814,6 @@
                                 statusHtml += `<br><span class="past-pause-reason">Pausa anterior: ${hist}</span>`;
                             });
                         }
-                        // Reopening logic: now appears for all requesters and managers
                         if (c.status === "Encerrado" && c.dataEncerramento) {
                             statusHtml += `<br><strong>Chamado encerrado:</strong> ${c.dataEncerramento}`;
                             const parsedDate = parseDateString(c.dataEncerramento);
@@ -1877,8 +1824,8 @@
                                 if (remainingTime > 0) {
                                     statusHtml += `<div class="flex items-center mt-2">`;
                                     statusHtml += `<button data-action="reabrir" data-os="${c.os}" class='reabrir-btn px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700'>Reabrir</button>`;
-                                    statusHtml += `<span id="countdown-${c.os}" class="countdown-timer"></span>`; // Placed after button
-                                    startCountdown(c.os, c.dataEncerramento); // Start the countdown
+                                    statusHtml += `<span id="countdown-${c.os}" class="countdown-timer"></span>`;
+                                    startCountdown(c.os, c.dataEncerramento);
                                 } else {
                                     statusHtml += `<span class="ml-2 font-mono text-sm text-gray-500">Tempo para reabrir expirado.</span>`;
                                 }
@@ -1892,15 +1839,12 @@
                     if (listaStatusChamado) listaStatusChamado.innerHTML = "<p class='text-gray-600'>Nenhum chamado encontrado.</p>";
                 }
             } else {
-                // Clear solicitante dashboard if not a solicitante/gestor
                 if (solicitanteDashboard) solicitanteDashboard.innerHTML = "";
             }
 
 
-            // Chamados for technicians (all open ones)
-            // This section remains unchanged, showing all open calls for the technician.
             const chamadosAbertosTecnicos = chamados.filter(c => c.status !== "Encerrado");
-            if (listaChamados) listaChamados.innerHTML = ""; // Clear technician list
+            if (listaChamados) listaChamados.innerHTML = "";
             chamadosAbertosTecnicos.forEach(c => {
                 let tecnicoButtons = '';
                 let finalizarButtonClass = 'bg-red-600 hover:bg-red-700';
@@ -1909,7 +1853,6 @@
                 let pausarButtonClass = 'bg-yellow-600 hover:bg-yellow-700';
 
 
-                // Add image icons if there are images
                 let imageIconsHtml = '';
                 if (c.imagens && c.imagens.length > 0) {
                     imageIconsHtml = `<div class="flex flex-wrap gap-1 mt-2">`;
@@ -1921,14 +1864,12 @@
                 }
 
 
-                // ONLY access loggedInUser.usuario if loggedInUser is not null
                 if (loggedInUser) {
                     if (!c.tecnicoResponsavel) {
-                        // Allow any technician or Gestor/Master to assume
                         if (loggedInUser.nivel === "Tecnico" || hasManagerPrivileges()) { 
                             tecnicoButtons = `<button data-action="assumir" data-os="${c.os}" class='ml-4 px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700'>Assumir</button>`;
                         }
-                    } else if (c.tecnicoResponsavel === loggedInUser.usuario || hasManagerPrivileges()) { // Allow Master/Gestor to manage any call
+                    } else if (c.tecnicoResponsavel === loggedInUser.usuario || hasManagerPrivileges()) {
                         if (c.status === "Pausado") {
                             pausarButtonText = 'Retomar';
                             pausarButtonClass = 'bg-green-600 hover:bg-green-700';
@@ -1948,39 +1889,36 @@
                         <div class='call-item bg-yellow-100'>
                             <strong>OS:</strong> ${c.os} <br>
                             <strong>Solicitante:</strong> ${c.solicitante} <br>
-                            ${c.reopenedBy ? `<strong>Reaberto por:</strong> ${c.reopenedBy}<br>` : ''} <!-- New: Reopened by -->
+                            ${c.reopenedBy ? `<strong>Reaberto por:</strong> ${c.reopenedBy}<br>` : ''}
                             <strong>Abertura:</strong> ${c.dataAbertura}<br>
-                            <strong>Equipe:</strong> ${c.frente} <br> <!-- Changed to Equipe -->
+                            <strong>Equipe:</strong> ${c.frente} <br>
                             <strong>Tipo de Equipamento:</strong> ${c.tipoFrota}<br>
                             <strong>Frota/ID:</strong> ${c.frota} <br>
                             <strong>Descrição:</strong> ${c.descricao} <br>
                             ${c.tecnicoResponsavel ? `<strong>Atribuído a:</strong> ${c.tecnicoResponsavel} - <strong>Status:</strong> ${c.status}` : ''}
                             ${c.status === "Pausado" && c.motivoPausa ? `<br><strong>Chamado pausado:</strong> ${c.motivoPausa}` : ''}
                             ${Array.isArray(c.historicoPausas) ? c.historicoPausas.map(hist => `<br><span class="past-pause-reason">Pausa anterior: ${hist}</span>`).join('') : ''}
-                            ${imageIconsHtml} <!-- Add image icons here -->
+                            ${imageIconsHtml}
                             ${tecnicoButtons}
                         </div>
                     `;
                 }
             });
 
-            // Update the technician dashboard if the user is logged in as a technician or manager
-            if (loggedInUser && (loggedInUser.nivel === "Tecnico" || loggedInUser.nivel === "Gestor")) { // Gestor now encompasses Master
+            if (loggedInUser && (loggedInUser.nivel === "Tecnico" || loggedInUser.nivel === "Gestor")) {
                 renderTechnicianDashboard();
             } else {
-                // Clear technician dashboard if not a technician/gestor
                 if (technicianDashboard) technicianDashboard.innerHTML = "";
             }
             console.log("DEBUG: Fim da função atualizarChamados()");
         }
 
-        // NEW: Function to render the solicitante dashboard
         function renderSolicitanteDashboard() {
             console.log("DEBUG: Início da função renderSolicitanteDashboard()");
             console.log("DEBUG: Usuário logado em renderSolicitanteDashboard:", loggedInUser ? loggedInUser.usuario : "Nenhum", "Nível:", loggedInUser ? loggedInUser.nivel : "Nenhum");
 
             if (!loggedInUser || (loggedInUser.nivel !== "Solicitante" && loggedInUser.nivel !== "Gestor")) {
-                if (solicitanteDashboard) solicitanteDashboard.innerHTML = ''; // Clear if the user is not a solicitante/manager
+                if (solicitanteDashboard) solicitanteDashboard.innerHTML = '';
                 console.log("DEBUG: Dashboard do solicitante não renderizado: Usuário não é Solicitante ou Gestor.");
                 return;
             }
@@ -1992,7 +1930,7 @@
             const totalAttendedCalls = attendedCalls.length;
             console.log("DEBUG: Total de Chamados Atendidos:", totalAttendedCalls);
 
-            let totalServiceTime = 0; // in milliseconds
+            let totalServiceTime = 0;
             attendedCalls.forEach(c => {
                 const dataAbertura = parseDateString(c.dataAbertura);
                 const dataEncerramento = parseDateString(c.dataEncerramento);
@@ -2030,13 +1968,12 @@
         }
 
 
-        // NEW: Function to render the technician dashboard
         function renderTechnicianDashboard() {
             console.log("DEBUG: Início da função renderTechnicianDashboard()");
             console.log("DEBUG: Usuário logado em renderTechnicianDashboard:", loggedInUser ? loggedInUser.usuario : "Nenhum", "Nível:", loggedInUser ? loggedInUser.nivel : "Nenhum");
 
-            if (!loggedInUser || (loggedInUser.nivel !== "Tecnico" && loggedInUser.nivel !== "Gestor")) { // Gestor now encompasses Master
-                if (technicianDashboard) technicianDashboard.innerHTML = ''; // Clear if the user is not a technician/manager
+            if (!loggedInUser || (loggedInUser.nivel !== "Tecnico" && loggedInUser.nivel !== "Gestor")) {
+                if (technicianDashboard) technicianDashboard.innerHTML = '';
                 console.log("DEBUG: Dashboard do técnico não renderizado: Usuário não é Técnico ou Gestor.");
                 return;
             }
@@ -2048,24 +1985,22 @@
             console.log("DEBUG: Chamados Ativos Assumidos:", activeAssumedCalls);
             
             const today = new Date();
-            today.setHours(0, 0, 0, 0); // Zero out the time to compare only the date
+            today.setHours(0, 0, 0, 0);
 
             const finishedCallsToday = technicianCalls.filter(c => {
                 if (c.status === "Encerrado" && c.dataEncerramento) {
                     const encerradoDate = parseDateString(c.dataEncerramento);
                     const isToday = encerradoDate && encerradoDate.setHours(0, 0, 0, 0) === today.getTime();
-                    // console.log(`DEBUG: Chamado ${c.os} (Concluído Hoje?): dataEncerramento=${c.dataEncerramento}, parsedDate=${encerradoDate}, isToday=${isToday}`); // Detailed log for each finished call
                     return isToday;
                 }
                 return false;
             });
             console.log("DEBUG: Chamados Concluídos Hoje:", finishedCallsToday.length, finishedCallsToday);
 
-            let totalServiceTimeToday = 0; // in milliseconds
+            let totalServiceTimeToday = 0;
             finishedCallsToday.forEach(c => {
                 const dataAbertura = parseDateString(c.dataAbertura);
                 const dataEncerramento = parseDateString(c.dataEncerramento);
-                // Ensure dates are valid and completion date is not before opening date
                 if (dataAbertura && dataEncerramento && dataEncerramento.getTime() >= dataAbertura.getTime()) {
                     totalServiceTimeToday += (dataEncerramento.getTime() - dataAbertura.getTime());
                 }
@@ -2104,21 +2039,18 @@
 
         async function assumirChamado(os) { 
             const chamado = chamados.find(c => c.os === os);
-            if (chamado && (!chamado.tecnicoResponsavel || hasManagerPrivileges())) { // Allow Master/Gestor to re-assign
+            if (chamado && (!chamado.tecnicoResponsavel || hasManagerPrivileges())) {
                 chamado.tecnicoResponsavel = loggedInUser?.usuario;
                 chamado.status = "Assumido";
 
                 try {
-                    // Update the call in Firestore using OS as document ID
-                    const callDocRef = doc(db, `calls`, chamado.os); // Use chamado.os as ID
-                    await setDoc(callDocRef, chamado);
+                    await setDoc(doc(db, `calls`, chamado.os), chamado);
                     console.log(`DEBUG: Chamado ${os} assumido e atualização enviada para o Firestore.`);
                 } catch (error) {
                     console.error("ERROR DEBUG: Erro ao atualizar chamado assumido no Firestore:", error);
                     showMessage("Erro ao Salvar", `Erro ao atualizar chamado ${os}: ${error.message}`);
                 }
 
-                // No need to call atualizarChamados() here, onSnapshot will do it automatically
                 showMessage("Sucesso", `Você assumiu o chamado ${os}.`);
             } else if (chamado?.tecnicoResponsavel && loggedInUser && chamado.tecnicoResponsavel !== loggedInUser.usuario) {
                 showMessage("Chamado Assumido", `O chamado ${os} já foi assumido por ${chamado.tecnicoResponsavel}.`);
@@ -2129,23 +2061,20 @@
 
         async function togglePausarReiniciar(os) {
             const chamado = chamados.find(c => c.os === os);
-            if (!chamado || (!hasManagerPrivileges() && chamado.tecnicoResponsavel !== loggedInUser?.usuario)) return; // Only responsible tech or Master/Gestor
+            if (!chamado || (!hasManagerPrivileges() && chamado.tecnicoResponsavel !== loggedInUser?.usuario)) return;
 
             if (chamado.status === "Pausado") {
                 chamado.status = "Assumido";
-                chamado.motivoPausa = null; // Clear current pause reason, but keep history
+                chamado.motivoPausa = null;
 
                 try {
-                    // Update the call in Firestore using OS as document ID
-                    const callDocRef = doc(db, `calls`, chamado.os); // Use chamado.os as ID
-                    await setDoc(callDocRef, chamado);
+                    await setDoc(doc(db, `calls`, chamado.os), chamado);
                     console.log(`DEBUG: Chamado ${os} retomado e atualização enviada.`);
                 } catch (error) {
                     console.error("ERROR DEBUG: Erro ao retomar e enviar atualização:", error);
                     showMessage("Erro ao Salvar", `Erro ao retomar chamado ${os}: ${error.message}`);
                 }
 
-                // No need to call atualizarChamados() here, onSnapshot will do it automatically
                 showMessage("Sucesso", `Chamado ${os} retomado.`);
 
             } else {
@@ -2167,25 +2096,21 @@
                 return;
             }
 
-            if (chamado && (hasManagerPrivileges() || chamado.tecnicoResponsavel === loggedInUser?.usuario)) { // Only responsible tech or Master/Gestor
+            if (chamado && (hasManagerPrivileges() || chamado.tecnicoResponsavel === loggedInUser?.usuario)) {
                 if (chamado.motivoPausa) {
-                    // Add pause date/time to history
-                    chamado.historicoPausas.push(`${chamado.motivoPausa} (${formatDateForFirestoreSave(new Date())})`); // Save with new format
+                    chamado.historicoPausas.push(`${chamado.motivoPausa} (${formatDateForFirestoreSave(new Date())})`);
                 }
                 chamado.motivoPausa = motivo;
                 chamado.status = "Pausado";
                 
                 try {
-                    // Update the call in Firestore using OS as document ID
-                    const callDocRef = doc(db, `calls`, chamado.os); // Use chamado.os as ID
-                    await setDoc(callDocRef, chamado);
+                    await setDoc(doc(db, `calls`, chamado.os), chamado);
                     console.log(`DEBUG: Chamado ${os} pausado e atualização enviada para o Firestore.`);
                 } catch (error) {
                     console.error("ERROR DEBUG: Erro ao pausar chamado no Firestore:", error);
                     showMessage("Erro ao Salvar", `Erro ao pausar chamado ${os}: ${error.message}`);
                 }
 
-                // No need to call atualizarChamados() here, onSnapshot will do it automatically
                 if (pausarChamadoModal) pausarChamadoModal.classList.add('hidden');
                 showMessage("Sucesso", `Chamado ${os} pausado com sucesso.`);
             }
@@ -2193,7 +2118,7 @@
 
         async function finalizarChamado(os) {
             const chamado = chamados.find(c => c.os === os);
-            if (chamado && (hasManagerPrivileges() || chamado.tecnicoResponsavel === loggedInUser?.usuario)) { // Only responsible tech or Master/Gestor
+            if (chamado && (hasManagerPrivileges() || chamado.tecnicoResponsavel === loggedInUser?.usuario)) {
                 if (chamado.status === "Pausado") {
                     showMessage("Ação Necessária", "Por favor, retome o chamado antes de finalizá-lo.");
                     return;
@@ -2201,24 +2126,20 @@
                 showConfirm("Confirmar Finalização", `Deseja finalizar o chamado ${os}?`, async (result) => {
                     if (result) {
                         chamado.status = "Encerrado";
-                        chamado.dataEncerramento = formatDateForFirestoreSave(new Date()); // Save in new format
-                        // Add current reason to history before clearing
+                        chamado.dataEncerramento = formatDateForFirestoreSave(new Date());
                         if (chamado.motivoPausa) {
-                            chamado.historicoPausas.push(`${chamado.motivoPausa} (${formatDateForFirestoreSave(new Date())})`); // Save with new format
+                            chamado.historicoPausas.push(`${chamado.motivoPausa} (${formatDateForFirestoreSave(new Date())})`);
                         }
-                        chamado.motivoPausa = null; // Clear active pause reason
+                        chamado.motivoPausa = null;
 
                         try {
-                            // Update the call in Firestore using OS as document ID
-                            const callDocRef = doc(db, `calls`, chamado.os); // Use chamado.os as ID
-                            await setDoc(callDocRef, chamado);
+                            await setDoc(doc(db, `calls`, chamado.os), chamado);
                             console.log(`DEBUG: Chamado ${os} finalizado e atualização enviada para o Firestore.`);
                         } catch (error) {
                             console.error("ERROR DEBUG: Erro ao finalizar chamado no Firestore:", error);
                             showMessage("Erro ao Salvar", `Erro ao finalizar chamado ${os}: ${error.message}`);
                         }
 
-                        // No need to call atualizarChamados() here, onSnapshot will do it automatically
                         showMessage("Sucesso", `Chamado ${os} finalizado com sucesso.`);
                     }
                 });
@@ -2240,20 +2161,17 @@
                             chamado.tecnicoResponsavel = null;
                             chamado.dataEncerramento = null; 
                             chamado.motivoPausa = null;
-                            chamado.historicoPausas = []; // Clear pause history on reopen
-                            chamado.reopenedBy = loggedInUser ? loggedInUser.usuario : "Desconhecido"; // Set who reopened
+                            chamado.historicoPausas = [];
+                            chamado.reopenedBy = loggedInUser ? loggedInUser.usuario : "Desconhecido";
 
                             try {
-                                // Reopen the call in Firestore using OS as document ID
-                                const callDocRef = doc(db, `calls`, chamado.os); // Use chamado.os as ID
-                                await setDoc(callDocRef, chamado);
+                                await setDoc(doc(db, `calls`, chamado.os), chamado);
                                 console.log(`DEBUG: Chamado ${os} reaberto e atualização enviada para o Firestore.`);
                             } catch (error) {
                                 console.error("ERROR DEBUG: Erro ao reabrir chamado no Firestore:", error);
                                 showMessage("Erro ao Salvar", `Erro ao reabrir chamado ${os}: ${error.message}`);
                             }
 
-                            // No need to call atualizarChamados() here, onSnapshot will do it automatically
                             showMessage("Sucesso", `Chamado ${os} reaberto com sucesso.`);
                         }
                     });
@@ -2267,7 +2185,8 @@
         async function criarOuSalvarUsuario() {
             const novoNomeCompleto = document.getElementById("novoNomeCompleto")?.value.trim();
             const novoIdUnico = document.getElementById("novoIdUnico")?.value.trim();
-            const novoUsuario = document.getElementById("novoUsuario")?.value.trim();
+            // Ensure usuario is always stored in lowercase for consistency
+            const novoUsuario = document.getElementById("novoUsuario")?.value.trim().toLowerCase(); 
             const novaSenha = document.getElementById("novaSenha")?.value.trim();
             const nivel = document.getElementById("nivel")?.value;
             const btnCriarSalvar = document.getElementById("btnCriarSalvarUsuario");
@@ -2285,74 +2204,93 @@
             }
 
             if (editingUserIndex === -1) { // Creation mode
-                // Check if user already exists (case-insensitive)
-                const userDocRef = doc(db, `users`, novoUsuario.toLowerCase()); // Use lowercase username as ID
-                const docSnap = await getDoc(userDocRef);
-                if (docSnap.exists()) {
+                // Check if custom username already exists in Firestore (compare in lowercase)
+                const existingUserByCustomUsername = users.find(u => u.usuario.toLowerCase() === novoUsuario.toLowerCase());
+                if (existingUserByCustomUsername) {
                     showMessage("Usuário Existente", "Já existe um usuário com este Nome de Usuário.");
                     return;
                 }
-                const newUser = { nome: novoNomeCompleto, idUnico: novoIdUnico, usuario: novoUsuario, senha: novaSenha, nivel, ativo: true }; // Removed avatarUrl
-                
+
                 try {
-                    // Add the new user to Firestore using username as document ID
-                    await setDoc(userDocRef, newUser);
-                    console.log("DEBUG: Novo usuário enviado para o Firestore com ID:", newUser.usuario);
+                    // Save user data to Firestore, using the 'usuario' (lowercase) as the document ID
+                    // WARNING: Storing passwords directly in Firestore is generally not recommended for production apps due to security concerns.
+                    // For robust security, consider using Firebase Authentication for password hashing and secure storage.
+                    const newUser = { 
+                        nome: novoNomeCompleto, 
+                        idUnico: novoIdUnico, 
+                        usuario: novoUsuario, // Store in lowercase
+                        senha: novaSenha,
+                        nivel, 
+                        ativo: true,
+                        id: novoUsuario // Set 'id' field in document to be the 'usuario' (lowercase) for consistent lookup
+                    };
+                    await setDoc(doc(db, `users`, novoUsuario), newUser); // Use 'usuario' (lowercase) as document ID
+                    console.log("DEBUG: Novo usuário enviado para o Firestore com ID (usuario):", novoUsuario);
                     showMessage("Sucesso", "Usuário criado com sucesso!");
+
                 } catch (error) {
-                    console.error("ERROR DEBUG: Erro ao enviar dados do usuário para o Firestore:", error);
-                    showMessage("Erro ao Salvar", `Erro ao salvar novo usuário no Firestore: ${error.message}`);
+                    console.error("ERROR DEBUG: Erro ao criar usuário no Firestore:", error);
+                    showMessage("Erro ao Criar Usuário", `Erro ao criar usuário: ${error.message}`);
+                    return;
                 }
 
             } else { // Edit mode
-                const userToUpdate = filteredUsersForPagination[editingUserIndex]; // Use filteredUsersForPagination to get the correct item on the current page
+                const userToUpdate = filteredUsersForPagination[editingUserIndex];
                 
-                // If username is changed, it's effectively a delete and create
+                // If custom username is changed, it's effectively a delete and create in Firestore
+                // Compare original username (from Firestore) with new username (lowercased)
                 if (userToUpdate.usuario.toLowerCase() !== novoUsuario.toLowerCase()) {
-                    // Check if new username already exists
-                    const newUserDocRef = doc(db, `users`, novoUsuario.toLowerCase());
-                    const newUserDocSnap = await getDoc(newUserDocRef);
-                    if (newUserDocSnap.exists()) {
+                    const existingUserByNewCustomUsername = users.find(u => 
+                        u.usuario.toLowerCase() === novoUsuario.toLowerCase() && u.id !== userToUpdate.id
+                    );
+                    if (existingUserByNewCustomUsername) {
                         showMessage("Usuário Existente", "Já existe outro usuário com este Nome de Usuário.");
                         return;
                     }
-                    // Delete old document
-                    await deleteDoc(doc(db, `users`, userToUpdate.usuario.toLowerCase()));
-                    console.log(`DEBUG: Documento antigo do usuário ${userToUpdate.usuario} excluído.`);
-                    
-                    // Create new document with new username as ID
-                    userToUpdate.usuario = novoUsuario; // Update the in-memory object
-                    const updatedUserDocRef = doc(db, `users`, novoUsuario.toLowerCase());
-                    await setDoc(updatedUserDocRef, { 
-                        nome: novoNomeCompleto, 
-                        idUnico: novoIdUnico, 
-                        usuario: novoUsuario, 
-                        senha: novaSenha, 
-                        nivel: nivel, 
-                        ativo: userToUpdate.ativo // Keep active status
-                    });
-                    console.log(`DEBUG: Usuário ${novoUsuario} atualizado (ID alterado) no Firestore.`);
-
-                } else { // Username not changed, just update existing document
-                    userToUpdate.nome = novoNomeCompleto;
-                    userToUpdate.idUnico = novoIdUnico; // Use idUnico
-                    userToUpdate.senha = novaSenha;
-                    userToUpdate.nivel = nivel;
 
                     try {
-                        // Update the user in Firestore using username as document ID
-                        const userDocRef = doc(db, `users`, userToUpdate.usuario.toLowerCase()); // Use userToUpdate.usuario as ID
-                        await setDoc(userDocRef, userToUpdate);
-                        console.log("DEBUG: Usuário atualizado no Firestore com ID:", userToUpdate.usuario);
+                        // Delete old document (using old 'usuario' as ID, which should be lowercase if created/edited with new logic)
+                        await deleteDoc(doc(db, `users`, userToUpdate.usuario.toLowerCase()));
+                        console.log(`DEBUG: Documento antigo do usuário ${userToUpdate.usuario} excluído.`);
+                        
+                        // Create new document with new 'usuario' (lowercase) as ID, preserving other data
+                        const updatedUser = { 
+                            nome: novoNomeCompleto, 
+                            idUnico: novoIdUnico, 
+                            usuario: novoUsuario, // Store new username in lowercase
+                            senha: novaSenha,
+                            nivel: nivel, 
+                            ativo: userToUpdate.ativo,
+                            id: novoUsuario // Update 'id' field in document to be the new 'usuario' (lowercase)
+                        };
+                        await setDoc(doc(db, `users`, novoUsuario), updatedUser);
+                        console.log(`DEBUG: Usuário ${novoUsuario} atualizado (ID alterado) no Firestore.`);
+
+                    } catch (error) {
+                        console.error("ERROR DEBUG: Erro ao atualizar usuário (Firestore - mudança de ID):", error);
+                        showMessage("Erro ao Salvar", `Erro ao salvar alterações do usuário: ${error.message}`);
+                        return;
+                    }
+                } else { // Only other fields changed, not username (document ID)
+                    try {
+                        // Update the user in Firestore using 'usuario' (lowercase) as document ID
+                        const userDocRef = doc(db, `users`, userToUpdate.usuario.toLowerCase());
+                        await setDoc(userDocRef, { 
+                            nome: novoNomeCompleto, 
+                            idUnico: novoIdUnico,
+                            // senha: novaSenha, // Password is NOT updated here, only in trocarSenhaModal
+                            nivel: nivel 
+                        }, { merge: true });
+                        console.log("DEBUG: Usuário atualizado no Firestore com ID (usuario):", userDocRef.id);
                     } catch (error) {
                         console.error("ERROR DEBUG: Erro ao atualizar usuário no Firestore:", error);
                         showMessage("Erro ao Salvar", `Erro ao salvar alterações do usuário no Firestore: ${error.message}`);
+                        return;
                     }
                 }
                 showMessage("Sucesso", "Usuário atualizado com sucesso!");
             }
 
-            // Clear the form and revert the button to its initial state
             if (document.getElementById("novoNomeCompleto")) document.getElementById("novoNomeCompleto").value = "";
             if (document.getElementById("novoIdUnico")) document.getElementById("novoIdUnico").value = "";
             if (document.getElementById("novoUsuario")) document.getElementById("novoUsuario").value = "";
@@ -2360,14 +2298,12 @@
             if (document.getElementById("nivel")) document.getElementById("nivel").value = "Solicitante";
             if (btnCriarSalvar) {
                 btnCriarSalvar.innerText = "Criar Usuário";
-                btnCriarSalvar.classList.remove("bg-blue-600"); // Remove save color
-                btnCriarSalvar.classList.add("bg-purple-600"); // Add create color
+                btnCriarSalvar.classList.remove("bg-blue-600");
+                btnCriarSalvar.classList.add("bg-purple-600");
             }
             if (btnCancelar) btnCancelar.classList.add("hidden");
-            editingUserIndex = -1; // Return to creation mode
-            // Hide Caps Lock warnings when canceling
+            editingUserIndex = -1;
             if (capsLockNovaSenhaWarning) capsLockNovaSenhaWarning.style.display = 'none';
-            // No need to loadUsersFromFirestore() or listUsers() here, onSnapshot will do it
         }
 
         function cancelarEdicaoUsuario() {
@@ -2386,8 +2322,7 @@
                 btnCriarSalvar.classList.add("bg-purple-600");
             }
             if (btnCancelar) btnCancelar.classList.add("hidden");
-            editingUserIndex = -1; // Return to creation mode
-            // Hide Caps Lock warnings when canceling
+            editingUserIndex = -1;
             if (capsLockNovaSenhaWarning) capsLockNovaSenhaWarning.style.display = 'none';
         }
 
@@ -2401,7 +2336,7 @@
                                     <span>Nível</span>
                                     <span>Ativo</span>
                                     <span class="col-span-1 text-right">Ações</span>
-                                </div>`; // Table header
+                                </div>`;
             } else {
                 console.error("ERROR DEBUG: Elemento listaUsuarios não encontrado!");
                 return;
@@ -2410,19 +2345,17 @@
 
             let usersToDisplay = users;
 
-            // Apply search filter
             if (userSearchQuery) {
                 const lowerCaseQuery = userSearchQuery.toLowerCase();
                 usersToDisplay = usersToDisplay.filter(u =>
                     (u.nome && u.nome.toLowerCase().includes(lowerCaseQuery)) ||
-                    (u.idUnico && u.idUnico.toLowerCase().includes(lowerCaseQuery)) || // Search by idUnico
+                    (u.idUnico && u.idUnico.toLowerCase().includes(lowerCaseQuery)) ||
                     (u.usuario && u.usuario.toLowerCase().includes(lowerCaseQuery))
                 );
             }
             
-            filteredUsersForPagination = usersToDisplay; // Update filtered list for pagination
+            filteredUsersForPagination = usersToDisplay;
 
-            // Calculate total pages for users
             totalUserPages = Math.ceil(filteredUsersForPagination.length / userItemsPerPage);
             if (totalUserPages === 0) {
                 currentUserPage = 0;
@@ -2432,7 +2365,6 @@
                 currentUserPage = totalUserPages;
             }
 
-            // Update page information for users
             const userPageInfo = document.getElementById('userPageInfo');
             const prevUserPageBtn = document.getElementById('prevUserPageBtn');
             const nextUserPageBtn = document.getElementById('nextUserPageBtn');
@@ -2441,7 +2373,6 @@
             if (prevUserPageBtn) prevUserPageBtn.disabled = currentUserPage <= 1;
             if (nextUserPageBtn) nextUserPageBtn.disabled = currentUserPage >= totalUserPages;
 
-            // Select users for the current page
             const startIndex = (currentUserPage - 1) * userItemsPerPage;
             const endIndex = startIndex + userItemsPerPage;
             const usersOnCurrentPage = filteredUsersForPagination.slice(startIndex, endIndex);
@@ -2450,24 +2381,23 @@
                 usersOnCurrentPage.forEach((u, i) => {
                     let rowHtml = `<div class='grid grid-cols-7 gap-2 p-2 border-b items-center'>`;
                     rowHtml += `<span>${u.nome || ''}</span>`;
-                    rowHtml += `<span>${u.idUnico || ''}</span>`; // Display idUnico
+                    rowHtml += `<span>${u.idUnico || ''}</span>`;
                     rowHtml += `<span>${u.usuario || ''}</span>`; 
-                    rowHtml += `<span>${u.senha ? '********' : ''}</span>`; // Hide password
+                    rowHtml += `<span>${u.senha ? '********' : ''}</span>`;
                     rowHtml += `<span>${u.nivel || ''}</span>`;
                     rowHtml += `<span>${u.ativo ? 'Ativo' : 'Inativo'}</span>`;
                     
-                    // Actions for the Master user (Juliano Timóteo) or Gestor
                     if (loggedInUser && hasManagerPrivileges()) {
                         if (typeof u.usuario === 'string' && u.usuario.toLowerCase() === "julianotimoteo") {
-                            rowHtml += `<span class='text-green-600 font-semibold col-span-1 text-right'>Master</span>`; // Display "Master"
+                            rowHtml += `<span class='text-green-600 font-semibold col-span-1 text-right'>Master</span>`;
                         } else {
                             rowHtml += `<div class='flex gap-2 items-center justify-end col-span-1'>
-                                        <button data-action="editar" data-index="${i}" class="btn-editar">Editar</button> <!-- Uses the index in the paginated list -->
-                                        <button data-action="excluir" data-index="${i}" class="btn-excluir">Excluir</button> <!-- Uses the index in the paginated list -->
+                                        <button data-action="editar" data-index="${i}" class="btn-editar">Editar</button>
+                                        <button data-action="excluir" data-index="${i}" class="btn-excluir">Excluir</button>
                                     </div>`;
                         }
                     } else {
-                        rowHtml += `<span class='col-span-1 text-right'></span>`; // Empty if no privileges
+                        rowHtml += `<span class='col-span-1 text-right'></span>`;
                     }
                     if (listaUsuarios) listaUsuarios.innerHTML += rowHtml;
                 });
@@ -2476,16 +2406,15 @@
             }
         }
 
-        // Function to delete user
         async function excluirUsuario(index) {
-            const userToDelete = filteredUsersForPagination[index]; // Get the user from the filtered/paginated list
+            const userToDelete = filteredUsersForPagination[index];
             
             if (!loggedInUser || !hasManagerPrivileges()) {
                 showMessage("Acesso Negado", "Você não tem permissão para excluir usuários.");
                 return;
             }
 
-            if (typeof userToDelete.usuario === 'string' && userToDelete.usuario.toLowerCase() === "julianotimoteo") { // Added type check
+            if (typeof userToDelete.usuario === 'string' && userToDelete.usuario.toLowerCase() === "julianotimoteo") {
                 showMessage("Acesso Negado", "Não é possível excluir o usuário Master.");
                 return;
             }
@@ -2493,62 +2422,56 @@
             showConfirm("Confirmar Exclusão", `Tem certeza que deseja excluir o usuário ${userToDelete.usuario}?`, async (result) => {
                 if (result) {
                     try {
-                        // Delete the user from Firestore using username as document ID
-                        const userDocRef = doc(db, `users`, userToDelete.usuario.toLowerCase()); // Use userToDelete.usuario as ID
+                        // Delete the user from Firestore using 'usuario' (lowercase) as the document ID
+                        const userDocRef = doc(db, `users`, userToDelete.usuario.toLowerCase());
                         await deleteDoc(userDocRef);
-                        console.log(`DEBUG: Usuário ${userToDelete.usuario} excluído do Firestore com ID: ${userToDelete.usuario}`);
+                        console.log(`DEBUG: Usuário ${userToDelete.usuario} excluído do Firestore com ID (usuario): ${userToDelete.usuario}`);
                         showMessage("Sucesso", `Usuário ${userToDelete.usuario} excluído com sucesso.`);
                     } catch (error) {
                         console.error("ERROR DEBUG: Erro ao excluir usuário do Firestore:", error);
                         showMessage("Erro de Exclusão", `Erro ao excluir usuário do Firestore: ${error.message}`);
                     }
-                    // No need to loadUsersFromFirestore() or listUsers() here, onSnapshot will do it
                 }
             });
         }
 
         function editarUsuario(index) {
-            const u = filteredUsersForPagination[index]; // Get the user from the filtered/paginated list
+            const u = filteredUsersForPagination[index];
             
             if (!loggedInUser || !hasManagerPrivileges()) {
                 showMessage("Acesso Negado", "Você não tem permissão para editar usuários.");
                 return;
             }
 
-            if (typeof u.usuario === 'string' && u.usuario.toLowerCase() === "julianotimoteo") { // Added type check
+            if (typeof u.usuario === 'string' && u.usuario.toLowerCase() === "julianotimoteo") {
                 showMessage("Acesso Negado", "Não é possível editar o usuário Master diretamente por aqui.");
                 return;
             }
             if (document.getElementById("novoNomeCompleto")) document.getElementById("novoNomeCompleto").value = u.nome;
-            if (document.getElementById("novoIdUnico")) document.getElementById("novoIdUnico").value = u.idUnico; // Use idUnico
+            if (document.getElementById("novoIdUnico")) document.getElementById("novoIdUnico").value = u.idUnico;
             if (document.getElementById("novoUsuario")) document.getElementById("novoUsuario").value = u.usuario;
-            if (document.getElementById("novaSenha")) document.getElementById("novaSenha").value = u.senha; // Fill password for editing
+            if (document.getElementById("novaSenha")) document.getElementById("novaSenha").value = u.senha;
             if (document.getElementById("nivel")) document.getElementById("nivel").value = u.nivel;
 
-            editingUserIndex = index; // Set the index of the user being edited in the paginated list
+            editingUserIndex = index;
             const btnCriarSalvar = document.getElementById("btnCriarSalvarUsuario");
             const btnCancelar = document.getElementById("btnCancelarEdicao");
             const capsLockNovaSenhaWarning = document.getElementById("capsLockNovaSenha");
 
             if (btnCriarSalvar) {
                 btnCriarSalvar.innerText = "Salvar";
-                btnCriarSalvar.classList.remove("bg-purple-600"); // Remove save color
-                btnCriarSalvar.classList.add("bg-blue-600"); // Add save color
+                btnCriarSalvar.classList.remove("bg-purple-600");
+                btnCriarSalvar.classList.add("bg-blue-600");
             }
             if (btnCancelar) btnCancelar.classList.remove("hidden");
-            // Hide Caps Lock warnings when starting edit
             if (capsLockNovaSenhaWarning) capsLockNovaSenhaWarning.style.display = 'none';
         }
 
-        // --- Functions for Front Management (NEW) ---
-        // This function is no longer needed as equipment is added directly to the front being created/edited
-        // function renderEquipmentList() { /* Removed */ }
-
-        async function addEquipmentToSelectedFront() { // Renamed function
+        async function addEquipmentToSelectedFront() {
             const tipo = novoTipoFrotaInput?.value.trim();
-            const cor = novoTipoFrotaColorInput?.value; // NEW: Get selected background color
-            const frotasInput = novaFrotaIdInput?.value.trim(); // Get comma-separated fleets
-            const targetFrontName = targetFrenteSelect?.value; // Get selected target front
+            const cor = novoTipoFrotaColorInput?.value;
+            const frotasInput = novaFrotaIdInput?.value.trim();
+            const targetFrontName = targetFrenteSelect?.value;
 
             if (!loggedInUser || !hasManagerPrivileges()) {
                 showMessage("Acesso Negado", "Você não tem permissão para adicionar equipamentos.");
@@ -2576,19 +2499,18 @@
             let errors = [];
 
             for (const frota of frotas) {
-                // Global duplicate check for frota, excluding the original equipment's frota
                 const existingEquipment = findEquipmentByFrota(frota);
                 if (existingEquipment) {
                     errors.push(`A frota ${frota} já está cadastrada na equipe "${existingEquipment.frente}".`);
                 } else {
-                    newEquipments.push({ tipo, frota, color: cor }); // REMOVED: textColor
+                    newEquipments.push({ tipo, frota, color: cor });
                 }
             }
 
             if (errors.length > 0) {
                 showMessage("Erro ao Adicionar Equipamento", errors.join('\n'));
                 if (newEquipments.length === 0) {
-                    return; // If all were duplicates, stop here
+                    return;
                 }
             }
 
@@ -2596,7 +2518,7 @@
                 if (!targetFront.equipamentos) {
                     targetFront.equipamentos = [];
                 }
-                targetFront.equipamentos.push(...newEquipments); // Add all valid new equipments
+                targetFront.equipamentos.push(...newEquipments);
 
                 try {
                     await setDoc(doc(db, 'fronts', targetFront.name), targetFront);
@@ -2608,9 +2530,9 @@
             }
             
             if (novoTipoFrotaInput) novoTipoFrotaInput.value = '';
-            if (novoTipoFrotaColorInput) novoTipoFrotaColorInput.value = '#40800c'; // Reset background color to default green
+            if (novoTipoFrotaColorInput) novoTipoFrotaColorInput.value = '#40800c';
             if (novaFrotaIdInput) novaFrotaIdInput.value = '';
-            if (targetFrenteSelect) targetFrenteSelect.value = ''; // Clear selected target front
+            if (targetFrenteSelect) targetFrenteSelect.value = '';
         }
 
         async function criarOuSalvarFrente() {
@@ -2622,81 +2544,74 @@
             }
 
             if (!novaFrenteNome) {
-                showMessage("Campo Obrigatório", "Por favor, insira o nome da equipe."); // Changed to equipe
+                showMessage("Campo Obrigatório", "Por favor, insira o nome da equipe.");
                 return;
             }
 
-            if (editingFrontIndex === -1) { // Creation mode
-                // Check if front already exists
-                const frontDocRef = doc(db, `fronts`, novaFrenteNome); // Use front name as ID
+            if (editingFrontIndex === -1) {
+                // Use lowercase for front name as document ID for consistency
+                const frontDocRef = doc(db, `fronts`, novaFrenteNome.toLowerCase());
                 const docSnap = await getDoc(frontDocRef);
                 if (docSnap.exists()) {
-                    showMessage("Equipe Existente", "Já existe uma equipe com este nome."); // Changed to equipe
+                    showMessage("Equipe Existente", "Já existe uma equipe com este nome.");
                     return;
                 }
-                // When creating a new front, it starts with an empty equipment list.
-                // Equipment is added via the "Adicionar Equipamento" section.
                 const newFront = { name: novaFrenteNome, equipamentos: [] }; 
                 try {
-                    // Add the new front to Firestore using name as document ID
                     await setDoc(frontDocRef, newFront);
                     console.log("DEBUG: Nova frente enviada para o Firestore com ID:", newFront.name);
-                    showMessage("Sucesso", "Equipe criada com sucesso!"); // Changed to equipe
+                    showMessage("Sucesso", "Equipe criada com sucesso!");
                 } catch (error) {
                     console.error("ERROR DEBUG: Erro ao enviar dados da frente para o Firestore:", error);
-                    showMessage("Erro ao Salvar", `Erro ao salvar nova equipe no Firestore: ${error.message}`); // Changed to equipe
+                    showMessage("Erro ao Salvar", `Erro ao salvar nova equipe no Firestore: ${error.message}`);
                 }
-            } else { // Edit mode (only name of the front can be edited here, equipment is handled by the modal)
-                const frontToUpdate = filteredFrontsForPagination[editingFrontIndex]; // Get the front from the filtered/paginated list
+            } else {
+                const frontToUpdate = filteredFrontsForPagination[editingFrontIndex];
                 
-                // If front name is changed, it's effectively a delete and create
+                // Compare original front name (from Firestore) with new front name (trimmed)
                 if (frontToUpdate.name.toLowerCase() !== novaFrenteNome.toLowerCase()) {
-                    // Check if new front name already exists
                     const newFrontDocRef = doc(db, `fronts`, novaFrenteNome.toLowerCase());
                     const newFrontDocSnap = await getDoc(newFrontDocRef);
                     if (newFrontDocSnap.exists()) {
-                        showMessage("Equipe Existente", "Já existe outra equipe com este nome."); // Changed to equipe
+                        showMessage("Equipe Existente", "Já existe outra equipe com este nome.");
                         return;
                     }
-                    // Delete old document
+                    // Delete old document (using old name, lowercased for consistency)
                     await deleteDoc(doc(db, `fronts`, frontToUpdate.name.toLowerCase()));
-                    console.log(`DEBUG: Documento antigo da equipe ${frontToUpdate.name} excluído.`); // Changed to equipe
+                    console.log(`DEBUG: Documento antigo da equipe ${frontToUpdate.name} excluído.`);
                     
-                    // Create new document with new front name as ID, preserving existing equipment
-                    frontToUpdate.name = novaFrenteNome; // Update the in-memory object
+                    // Update the name in the object before saving
+                    frontToUpdate.name = novaFrenteNome;
+                    // Save new document with new name (lowercased)
                     const updatedFrontDocRef = doc(db, `fronts`, novaFrenteNome.toLowerCase());
                     await setDoc(updatedFrontDocRef, { 
                         name: novaFrenteNome, 
-                        equipamentos: frontToUpdate.equipamentos // Keep existing equipment
+                        equipamentos: frontToUpdate.equipamentos
                     });
-                    console.log(`DEBUG: Equipe ${novaFrenteNome} atualizada (ID alterado) no Firestore.`); // Changed to equipe
+                    console.log(`DEBUG: Equipe ${novaFrenteNome} atualizada (ID alterado) no Firestore.`);
 
-                } else { // Front name not changed, no need to update if only name is handled here
-                    // If only name is handled here, and it didn't change, no Firestore update is needed for the front itself.
-                    // Equipment is updated via the addEquipmentToSelectedFront or editEquipmentModal.
+                } else {
                     showMessage("Nenhuma Alteração", "Nenhuma alteração no nome da equipe para salvar.");
                     cancelarEdicaoFrente();
                     return;
                 }
-                showMessage("Sucesso", "Equipe atualizada com sucesso!"); // Changed to equipe
+                showMessage("Sucesso", "Equipe atualizada com sucesso!");
             }
 
-            cancelarEdicaoFrente(); // Clear the form and reset the state
-            // No need to loadFrontsFromFirestore() or listFronts() here, onSnapshot will do it
+            cancelarEdicaoFrente();
         }
 
         function cancelarEdicaoFrente() {
             if (novaFrenteNomeInput) novaFrenteNomeInput.value = "";
             if (novoTipoFrotaInput) novoTipoFrotaInput.value = "";
-            if (novoTipoFrotaColorInput) novoTipoFrotaColorInput.value = '#40800c'; // Reset background color
+            if (novoTipoFrotaColorInput) novoTipoFrotaColorInput.value = '#40800c';
             if (novaFrotaIdInput) novaFrotaIdInput.value = "";
-            if (targetFrenteSelect) targetFrenteSelect.value = ""; // Clear target front selection
+            if (targetFrenteSelect) targetFrenteSelect.value = "";
             currentFrontEquipments = [];
-            // renderEquipmentList(); // Removed as equipmentListDiv is no longer in this section
 
             if (btnCriarSalvarFrente) {
-                btnCriarSalvarFrente.innerText = "Criar Equipe"; // Changed to Equipe
-                btnCriarSalvarFrente.classList.remove("bg-purple-600");
+                btnCriarSalvarFrente.innerText = "Criar Equipe";
+                btnCriarSalvarFrente.classList.remove("bg-blue-600");
                 btnCriarSalvarFrente.classList.add("bg-purple-600");
             }
             if (btnCancelarEdicaoFrente) btnCancelarEdicaoFrente.classList.add("hidden");
@@ -2704,32 +2619,31 @@
         }
 
         async function excluirFrente(index) {
-            const frontToDelete = filteredFrontsForPagination[index]; // Get the front from the filtered/paginated list
+            const frontToDelete = filteredFrontsForPagination[index];
             
             if (!loggedInUser || !hasManagerPrivileges()) {
                 showMessage("Acesso Negado", "Você não tem permissão para excluir equipes.");
                 return;
             }
 
-            showConfirm("Confirmar Exclusão", `Tem certeza que deseja excluir a equipe "${frontToDelete.name}"?`, async (result) => { // Changed to equipe
+            showConfirm("Confirmar Exclusão", `Tem certeza que deseja excluir a equipe "${frontToDelete.name}"?`, async (result) => {
                 if (result) {
                     try {
-                        // Delete the front from Firestore using name as document ID
-                        const frontDocRef = doc(db, `fronts`, frontToDelete.name); // Use frontToDelete.name as ID
+                        // Use lowercase for front name as document ID for deletion
+                        const frontDocRef = doc(db, `fronts`, frontToDelete.name.toLowerCase());
                         await deleteDoc(frontDocRef);
-                        console.log(`DEBUG: Equipe "${frontToDelete.name}" excluída do Firestore com ID: ${frontToDelete.name}`); // Changed to equipe
-                        showMessage("Sucesso", `Equipe "${frontToDelete.name}" excluída com sucesso.`); // Changed to equipe
+                        console.log(`DEBUG: Equipe "${frontToDelete.name}" excluída do Firestore com ID: ${frontToDelete.name}`);
+                        showMessage("Sucesso", `Equipe "${frontToDelete.name}" excluída com sucesso.`);
                     } catch (error) {
                         console.error("ERROR DEBUG: Erro ao excluir frente do Firestore:", error);
                         showMessage("Erro de Exclusão", `Erro ao excluir equipe do Firestore: ${error.message}`);
                     }
-                    // No need to loadFrontsFromFirestore() or listFronts() here, onSnapshot will do it
                 }
             });
         }
 
         function editarFrente(index) {
-            const f = filteredFrontsForPagination[index]; // Get the front from the filtered/paginated list
+            const f = filteredFrontsForPagination[index];
             
             if (!loggedInUser || !hasManagerPrivileges()) {
                 showMessage("Acesso Negado", "Você não tem permissão para editar equipes.");
@@ -2737,8 +2651,6 @@
             }
 
             if (novaFrenteNomeInput) novaFrenteNomeInput.value = f.name;
-            // currentFrontEquipments = [...(f.equipamentos || [])]; // This is no longer directly used for editing existing front's equipment
-            // renderEquipmentList(); // Removed
 
             editingFrontIndex = index;
             if (btnCriarSalvarFrente) {
@@ -2750,17 +2662,15 @@
         }
 
         function listarFrentes() {
-            if (listaFrentes) listaFrentes.innerHTML = ''; // Clear everything before rendering
-            if (frontFilterButtonsContainer) frontFilterButtonsContainer.innerHTML = ''; // Clear filter buttons
+            if (listaFrentes) listaFrentes.innerHTML = '';
+            if (frontFilterButtonsContainer) frontFilterButtonsContainer.innerHTML = '';
 
-            // Add "Todas as Equipes" button
             const allButton = document.createElement('button');
             allButton.className = `filter-btn ${currentFrontFilter === 'all' ? 'active' : ''}`;
             allButton.dataset.filter = 'all';
             allButton.innerText = 'Todas as Equipes';
             if (frontFilterButtonsContainer) frontFilterButtonsContainer.appendChild(allButton);
 
-            // Add buttons for each unique front
             frentes.forEach(f => {
                 const button = document.createElement('button');
                 button.className = `filter-btn ${currentFrontFilter === f.name ? 'active' : ''}`;
@@ -2772,14 +2682,12 @@
 
             let frontsToDisplay = frentes;
 
-            // Apply filter based on currentFrontFilter
             if (currentFrontFilter !== 'all') {
                 frontsToDisplay = frontsToDisplay.filter(f => f.name === currentFrontFilter);
             }
             
-            filteredFrontsForPagination = frontsToDisplay; // Update filtered list for pagination
+            filteredFrontsForPagination = frontsToDisplay;
 
-            // Calculate total pages for fronts
             totalFrontPages = Math.ceil(filteredFrontsForPagination.length / frontItemsPerPage);
             if (totalFrontPages === 0) {
                 currentFrontPage = 0;
@@ -2789,7 +2697,6 @@
                 currentFrontPage = totalFrontPages;
             }
 
-            // Update page information for fronts
             const frontPageInfo = document.getElementById('frontPageInfo');
             const prevFrontPageBtn = document.getElementById('prevFrontPageBtn');
             const nextFrontPageBtn = document.getElementById('nextFrontPageBtn');
@@ -2798,7 +2705,6 @@
             if (prevFrontPageBtn) prevFrontPageBtn.disabled = currentFrontPage <= 1;
             if (nextFrontPageBtn) nextFrontPageBtn.disabled = currentFrontPage >= totalFrontPages;
 
-            // Select fronts for the current page
             const startIndex = (currentFrontPage - 1) * frontItemsPerPage;
             const endIndex = startIndex + frontItemsPerPage;
             const frontsOnCurrentPage = filteredFrontsForPagination.slice(startIndex, endIndex);
@@ -2806,12 +2712,10 @@
             if (frontsOnCurrentPage.length > 0) {
                 frontsOnCurrentPage.forEach((f, i) => {
                     const frontItemDiv = document.createElement('div');
-                    // Add specific styling for "Frente 08"
                     const isFrente08 = f.name === "Frente 08";
-                    frontItemDiv.className = `front-group-item ${isFrente08 ? 'bg-green-100' : 'bg-blue-100'}`; // Changed to Equipe
+                    frontItemDiv.className = `front-group-item ${isFrente08 ? 'bg-green-100' : 'bg-blue-100'}`;
 
                     let actionsHtml = '';
-                    // Only Master (Juliano Timóteo) or Gestor can edit/delete fronts
                     if (loggedInUser && hasManagerPrivileges()) {
                         actionsHtml = `<div class='flex gap-2'>
                                         <button data-action="editarFrente" data-front-index="${i}" class="btn-editar-equipe">Editar Equipe</button>
@@ -2821,50 +2725,45 @@
 
                     frontItemDiv.innerHTML += `
                         <div class="front-group-header ${isFrente08 ? 'text-green-800' : ''}">
-                            <span class="font-bold ${isFrente08 ? 'font-extrabold' : ''}">Equipe: ${f.name || ''}</span> <!-- Changed to Equipe -->
+                            <span class="font-bold ${isFrente08 ? 'font-extrabold' : ''}">Equipe: ${f.name || ''}</span>
                             ${actionsHtml}
                         </div>
                     `;
 
                     if (f.equipamentos && f.equipamentos.length > 0) {
-                        // Group equipment by type
                         const groupedEquipments = f.equipamentos.reduce((acc, eq) => {
                             if (!acc[eq.tipo]) {
                                 acc[eq.tipo] = [];
                             }
-                            acc[eq.tipo].push(eq); // Push the whole equipment object to keep color
+                            acc[eq.tipo].push(eq);
                             return acc;
                         }, {});
 
-                        // Sort equipment types according to the defined hierarchy
                         const sortedTypes = Object.keys(groupedEquipments).sort((a, b) => {
                             const indexA = equipmentDisplayOrder.indexOf(a);
                             const indexB = equipmentDisplayOrder.indexOf(b);
 
                             if (indexA !== -1 && indexB !== -1) {
-                                return indexA - indexB; // Both are in the defined order
+                                return indexA - indexB;
                             } else if (indexA !== -1) {
-                                return -1; // A is in order, B is not, so A comes first
+                                return -1;
                             } else if (indexB !== -1) {
-                                return 1; // B is in order, A is not, so B comes first
+                                return 1;
                             }
-                            return a.localeCompare(b); // Both not in order, sort alphabetically
+                            return a.localeCompare(b);
                         });
 
                         let equipmentGridHtml = '<div class="equipment-grid">';
                         sortedTypes.forEach(type => {
-                            const equipmentsOfType = groupedEquipments[type].sort((a, b) => a.frota.localeCompare(b.frota)); // Sort by frota
-                            // Pass only background color, text color will be calculated for contrast
+                            const equipmentsOfType = groupedEquipments[type].sort((a, b) => a.frota.localeCompare(b.frota));
                             const colorStyle = getEquipmentColorStyle(type, equipmentsOfType[0].color); 
 
                             equipmentGridHtml += `
                                 <div class="equipment-column" style="${colorStyle}">
                                     <h4>${type}</h4>
                                     ${equipmentsOfType.map(eq => {
-                                        // Find the original index of this equipment in the front's array for editing
                                         const originalEqIndex = f.equipamentos.findIndex(e => e.tipo === type && e.frota === eq.frota);
                                         
-                                        // Check for active calls for this frota
                                         const activeCall = chamados.find(c => 
                                             String(c.frota || '').toLowerCase().trim() === eq.frota.toLowerCase().trim() && 
                                             c.status !== "Encerrado"
@@ -2873,7 +2772,6 @@
                                         const frotaTooltip = activeCall ? `OS: ${activeCall.os}` : '';
 
                                         let eqActionsHtml = '';
-                                        // Only Master (Juliano Timóteo) or Gestor can edit equipment
                                         if (loggedInUser && hasManagerPrivileges()) {
                                             eqActionsHtml = `<button data-action="editarEquipamento" data-front-index="${i}" data-equipment-index="${originalEqIndex}" class="btn-editar-eq">✏️</button>`;
                                         }
@@ -2885,18 +2783,15 @@
                         equipmentGridHtml += '</div>';
                         frontItemDiv.innerHTML += equipmentGridHtml;
                     } else {
-                        frontItemDiv.innerHTML += '<p class="text-gray-600 mt-2">Nenhum equipamento registrado para esta equipe.</p>'; // Changed to equipe
+                        frontItemDiv.innerHTML += '<p class="text-gray-600 mt-2">Nenhum equipamento registrado para esta equipe.</p>';
                     }
                     if (listaFrentes) listaFrentes.appendChild(frontItemDiv);
                 });
             } else {
-                if (listaFrentes) listaFrentes.innerHTML = "<p class='text-gray-600 p-4'>Nenhuma equipe encontrada.</p>"; // Changed to equipe
+                if (listaFrentes) listaFrentes.innerHTML = "<p class='text-gray-600 p-4'>Nenhuma equipe encontrada.</p>";
             }
         }
-        // --- End of Functions for Front Management ---
 
-
-        // Function to populate the Equipment Type select based on the selected Front
         function populateTipoFrotaSelect() {
             const selectedFrontName = frenteSelect?.value;
             if (tipoFrotaSelect) tipoFrotaSelect.innerHTML = '<option value="">Selecionar Tipo de Equipamento</option>';
@@ -2908,7 +2803,7 @@
                 const selectedFront = frentes.find(f => f.name === selectedFrontName);
                 if (selectedFront && selectedFront.equipamentos && selectedFront.equipamentos.length > 0) {
                     const uniqueTipoFrota = [...new Set(selectedFront.equipamentos.map(eq => eq.tipo))];
-                    uniqueTipoFrota.sort(); // Sort equipment types
+                    uniqueTipoFrota.sort();
                     uniqueTipoFrota.forEach(tipo => {
                         const option = document.createElement('option');
                         option.value = tipo;
@@ -2920,7 +2815,6 @@
             }
         }
 
-        // Function to populate the Fleet/ID select based on the selected Equipment Type
         function populateFrotaSelect() {
             const selectedFrontName = frenteSelect?.value;
             const selectedTipoFrota = tipoFrotaSelect?.value;
@@ -2933,7 +2827,7 @@
                     const filteredEquipments = selectedFront.equipamentos
                         .filter(eq => eq.tipo === selectedTipoFrota)
                         .map(eq => eq.frota)
-                        .sort(); // Sort fleets/IDs
+                        .sort();
                     
                     filteredEquipments.forEach(frota => {
                         const option = document.createElement('option');
@@ -2947,20 +2841,20 @@
         }
 
 
-        // New function to handle login logic (used by manual login and auto-login)
+        // Custom login function, validates against Firestore 'users' collection
         async function loginUserFromSavedCredentials(user, pass, remember) {
             console.log(`DEBUG: Tentando login para usuário: ${user}, senha: ${pass}`);
             
-            // At this point, currentUser SHOULD already be true and users data loaded by the first onSnapshot
-            if (!currentUser) { 
-                showMessage("Por Favor, Aguarde", "O sistema está inicializando a conexão. Por favor, tente novamente em alguns instantes.");
-                console.warn("DEBUG: Current user is null when login was attempted. Aborting login.");
+            // Wait for users data to be loaded by the onSnapshot listener
+            if (users.length === 0) {
+                showMessage("Por Favor, Aguarde", "O sistema está carregando os dados dos usuários. Por favor, tente novamente em alguns instantes.");
+                console.warn("DEBUG: Lista de usuários vazia. Abortando login.");
                 return;
             }
 
             console.log("DEBUG: Usuários atuais na memória (para verificação de login):", users);
             const encontrado = users.find(u => {
-                // Compare with u.id (which is now the username)
+                // Compare the provided username (lowercased) with the stored username (lowercased)
                 const isMatch = u && typeof u.usuario === 'string' && u.usuario.toLowerCase() === user.toLowerCase() && u.senha === pass && u.ativo;
                 console.log(`DEBUG: Verificando usuário: ${u?.usuario}, Ativo: ${u?.ativo}, Corresponde: ${isMatch}`);
                 return isMatch;
@@ -2972,15 +2866,16 @@
                 const telas = document.getElementById("telas");
 
                 if (erroDiv) erroDiv.classList.remove("hidden");
-                // If login fails, ensure the login form is visible
                 if (loginForm) loginForm.classList.remove("hidden");
                 if (telas) telas.classList.add("hidden");
                 console.warn("DEBUG: Login falhou: Usuário não encontrado ou credenciais incorretas.");
+                showMessage("Erro de Login", "Usuário ou senha inválidos. Por favor, verifique suas credenciais.");
                 return;
             }
-            loggedInUser = encontrado;
 
-            console.log("DEBUG: Usuário logado:", loggedInUser.usuario, "Nível:", loggedInUser.nivel, "Firestore ID (username):", loggedInUser.id);
+            // Custom authentication successful
+            loggedInUser = encontrado;
+            console.log("DEBUG: Login bem-sucedido com usuário do Firestore:", loggedInUser.usuario);
 
             if (remember) {
                 localStorage.setItem("salvo", JSON.stringify({ usuario: user, senha: pass }));
@@ -2988,7 +2883,6 @@
                 localStorage.removeItem("salvo");
             }
 
-            // If login is successful, hide the login form and show the main content
             const loginForm = document.getElementById("loginForm");
             const telas = document.getElementById("telas");
             if (loginForm) loginForm.classList.add("hidden");
@@ -3001,7 +2895,7 @@
                 document.getElementById("btn-frentes")?.classList.remove("hidden");
                 document.getElementById("btn-chamados")?.classList.remove("hidden");
                 document.getElementById("btn-tecnicos")?.classList.remove("hidden");
-                mostrarAba("chamados"); // Redirect to Solicitante tab by default for Managers and Masters
+                mostrarAba("chamados");
             } else if (loggedInUser.nivel === "Solicitante") {
                 document.getElementById("btn-chamados")?.classList.remove("hidden");
                 mostrarAba("chamados");
@@ -3010,7 +2904,6 @@
                 mostrarAba("tecnicos");
             }
 
-            // Set the current date and time of the device for the call opening field
             const now = new Date();
             const dataInput = document.getElementById("data");
             if (dataInput) dataInput.value = formatLocalDatetimeForInput(now);
@@ -3018,7 +2911,6 @@
             atualizarChamados();
         }
 
-        // The original login function now simply calls the new `loginUserFromSavedCredentials` function
         async function login() {
             const user = document.getElementById("usuario")?.value;
             const pass = document.getElementById("senha")?.value;
@@ -3029,7 +2921,7 @@
         function logout() {
             loggedInUser = null;
             localStorage.removeItem("salvo");
-            signOut(auth); // Add Firebase Authentication logout
+            signOut(auth); // Sign out the anonymous Firebase Auth user
             // The onAuthStateChanged listener will handle redirecting to login form and clearing UI
         }
 
@@ -3040,40 +2932,33 @@
             document.getElementById(aba)?.classList.remove("hidden");
             document.getElementById(`btn-${aba}`)?.classList.add("active");
 
-            // Specific logic for each tab when shown
             if (aba === 'chamados') {
-                // Set the current date and time of the device for the call opening field
                 const now = new Date();
                 const dataInput = document.getElementById("data");
                 if (dataInput) dataInput.value = formatLocalDatetimeForInput(now);
-                currentPage = 1; // Always reset to the first page when entering the calls tab
-                // Clear selected images and preview when switching to the calls tab
+                currentPage = 1;
                 selectedImages = [];
                 if (imagePreviewContainer) imagePreviewContainer.innerHTML = '';
-                populateTipoFrotaSelect(); // Ensure fleet selects are populated
+                populateTipoFrotaSelect();
                 populateFrotaSelect();
             } else if (aba === 'usuarios') {
-                currentUserPage = 1; // Reset page when switching tabs
-                listarUsuarios(); // Ensure user list is loaded when entering the users tab
+                currentUserPage = 1;
+                listarUsuarios();
             } else if (aba === 'frentes') {
-                currentFrontPage = 1; // Reset page when switching tabs
-                currentFrontFilter = 'all'; // Reset filter to show all fronts
-                listarFrentes(); // Ensure front list is loaded when entering the fronts tab
-                // Control visibility of front management section for Master/Gestor
+                currentFrontPage = 1;
+                currentFrontFilter = 'all';
+                listarFrentes();
                 if (loggedInUser && hasManagerPrivileges()) { 
                     if (frontManagementSection) frontManagementSection.classList.remove('hidden');
                 } else {
                     if (frontManagementSection) frontManagementSection.classList.add('hidden');
                 }
-                cancelarEdicaoFrente(); // Clear front edit/create form
+                cancelarEdicaoFrente();
             } else if (aba === 'tecnicos') {
-                // The technicians tab has no pagination of its own, but needs updated calls
             }
             
-            atualizarChamados(); // Update call display and dashboards
+            atualizarChamados();
         }
-
-        // The captarLocalizacao() function was removed as requested.
 
         function startSpeechToText() {
             if (!('webkitSpeechRecognition' in window)) {
@@ -3134,52 +3019,62 @@
                 showMessage("Senhas Não Conferem", "A nova senha e a confirmação não conferem.");
                 return;
             }
-            if (loggedInUser && loggedInUser.senha !== senhaAntiga) { // Check loggedInUser before accessing senha
-                showMessage("Senha Incorreta", "Senha antiga incorreta.");
-                return;
-            } else if (!loggedInUser) {
+
+            if (!loggedInUser) {
                 showMessage("Erro", "Erro: Usuário não logado.");
                 return;
             }
 
-            // Find the user in the in-memory list (which is updated by onSnapshot)
-            const userInMem = users.find(u => u.id === loggedInUser.id); // Use u.id (username)
-            if (userInMem) {
-                userInMem.senha = novaSenha1; // Update password in in-memory object
-                loggedInUser.senha = novaSenha1; // Update logged-in user object as well
-                
-                // Try to persist password change in Firestore
-                try {
-                    // Update password in Firestore using username as document ID
-                    const userDocRef = doc(db, `users`, userInMem.id); // Use userInMem.id as ID
-                    await setDoc(userDocRef, { senha: novaSenha1 }, { merge: true }); // Use merge to update only the password field
-                    console.log("DEBUG: Senha do usuário atualizada no Firestore com ID:", userInMem.id);
-                    showMessage("Sucesso", "Senha alterada com sucesso!");
-                    if (trocarSenhaModal) trocarSenhaModal.classList.add("hidden");
-                    if (localStorage.getItem("salvo")) {
-                        // Update password in localStorage for auto-login
-                        localStorage.setItem("salvo", JSON.stringify({ usuario: loggedInUser.usuario, senha: loggedInUser.senha }));
-                    }
-                } catch (error) {
-                    console.error("ERROR DEBUG: Erro ao atualizar senha no Firestore:", error);
-                    showMessage("Erro ao Salvar", `Erro ao salvar nova senha no Firestore: ${error.message}`);
+            console.log("DEBUG: Tentando trocar senha para usuário:", loggedInUser.usuario);
+            console.log("DEBUG: Senha antiga fornecida:", senhaAntiga);
+            console.log("DEBUG: Senha antiga armazenada (loggedInUser):", loggedInUser.senha);
+            console.log("DEBUG: Nova senha a ser definida:", novaSenha1);
+
+            // Validate old password against the one stored in loggedInUser (from Firestore)
+            if (senhaAntiga !== loggedInUser.senha) {
+                showMessage("Senha Antiga Incorreta", "A senha antiga fornecida está incorreta.");
+                return;
+            }
+            
+            try {
+                // Update the password in Firestore (in your custom user profile)
+                // Ensure the document ID is consistent (lowercase usuario)
+                const userDocRef = doc(db, `users`, loggedInUser.usuario.toLowerCase()); 
+                console.log("DEBUG: Caminho do documento Firestore para atualização de senha:", userDocRef.path);
+
+                // *** ALTERAÇÃO AQUI: Inclua o campo 'usuario' na atualização ***
+                await setDoc(userDocRef, { senha: novaSenha1, usuario: loggedInUser.usuario.toLowerCase() }, { merge: true });
+                console.log("DEBUG: Senha atualizada no Firestore para usuário:", loggedInUser.usuario);
+
+                // Update the loggedInUser object in memory
+                loggedInUser.senha = novaSenha1;
+
+                // Update the password in localStorage if "Lembrar-me" is active
+                if (localStorage.getItem("salvo")) {
+                    const savedData = JSON.parse(localStorage.getItem("salvo"));
+                    savedData.senha = novaSenha1;
+                    localStorage.setItem("salvo", JSON.stringify(savedData));
+                    console.log("DEBUG: Senha atualizada no localStorage.");
                 }
-            } else {
-                showMessage("Erro", "Erro: Usuário não encontrado para atualização de senha.");
+
+                showMessage("Sucesso", "Senha alterada com sucesso!");
+                if (trocarSenhaModal) trocarSenhaModal.classList.add("hidden");
+
+            } catch (error) {
+                console.error("ERROR DEBUG: Erro ao trocar senha no Firestore:", error);
+                showMessage("Erro ao Trocar Senha", `Erro ao trocar senha: ${error.message}`);
             }
         }
 
         function togglePasswordVisibility(fieldId) {
             const field = document.getElementById(fieldId);
-            // Construct the toggle icon ID dynamically based on the fieldId
-            // This handles 'senha', 'senhaAntiga', 'novaSenha1', 'novaSenha2', 'novaSenha'
             const toggleIconId = `toggle${fieldId.charAt(0).toUpperCase() + fieldId.slice(1)}`;
             const toggleIcon = document.getElementById(toggleIconId);
 
-            if (field && toggleIcon) { // Ensure both elements exist
+            if (field && toggleIcon) {
                 if (field.type === "password") {
                     field.type = "text";
-                    toggleIcon.textContent = "🙈";
+                    toggleIcon.textContent = "�";
                 } else {
                     field.type = "password";
                     toggleIcon.textContent = "👁️";
@@ -3200,13 +3095,10 @@
             }
         }
 
-        // --- Functions for Call image manipulation ---
-
         function handleImageSelection(event) {
             const files = event.target.files;
             if (!files) return;
 
-            // Clear previously selected images if the input is not for multiple files
             if (!event.target.multiple) {
                 selectedImages = [];
                 if (imagePreviewContainer) imagePreviewContainer.innerHTML = '';
@@ -3231,7 +3123,6 @@
                 };
                 reader.readAsDataURL(file);
             }
-            // Clear input value so that the 'change' event is triggered again if the same file is selected
             event.target.value = '';
         }
 
@@ -3249,7 +3140,6 @@
             });
         }
 
-        // Global function to be accessible from HTML (onclick)
         window.removeImage = function(index) {
             selectedImages.splice(index, 1);
             renderImagePreviews();
@@ -3265,16 +3155,12 @@
             }
         }
 
-        // --- New Functions for Equipment Editing/Movement ---
-
-        // Helper to find equipment by frota globally
         function findEquipmentByFrota(frotaToFind, excludeOriginal = false, originalFrota = null) {
             const lowerCaseFrotaToFind = frotaToFind.toLowerCase();
             for (const front of frentes) {
                 for (const eq of front.equipamentos) {
                     if (eq.frota.toLowerCase() === lowerCaseFrotaToFind) {
                         if (excludeOriginal && originalFrota && eq.frota.toLowerCase() === originalFrota.toLowerCase()) {
-                            // If we are excluding the original and this is the original, skip
                             continue;
                         }
                         return { frota: eq.frota, tipo: eq.tipo, frente: front.name };
@@ -3298,21 +3184,17 @@
                 return;
             }
 
-            // Store original data for later use in saving
             editingEquipmentData = {
                 originalFrontName: front.name,
                 originalEquipmentIndex: equipmentIndex,
                 originalFrota: equipment.frota
             };
 
-            // Populate modal fields
             if (editEquipmentFrotaInput) editEquipmentFrotaInput.value = equipment.frota;
             if (editEquipmentTipoInput) editEquipmentTipoInput.value = equipment.tipo;
-            // NEW: Populate background color picker
             if (editEquipmentTipoColorInput) editEquipmentTipoColorInput.value = equipment.color || hardcodedEquipmentColors[equipment.tipo] || hardcodedEquipmentColors['Default'];
 
 
-            // Populate the "Selecionar Nova Equipe" dropdown
             if (editEquipmentFrenteSelect) editEquipmentFrenteSelect.innerHTML = '<option value="">Selecionar Nova Equipe</option>';
             frentes.forEach(frenteItem => {
                 const option = document.createElement('option');
@@ -3320,7 +3202,7 @@
                 option.innerText = frenteItem.name;
                 if (editEquipmentFrenteSelect) editEquipmentFrenteSelect.appendChild(option);
             });
-            if (editEquipmentFrenteSelect) editEquipmentFrenteSelect.value = front.name; // Pre-select current front
+            if (editEquipmentFrenteSelect) editEquipmentFrenteSelect.value = front.name;
 
             if (editEquipmentModal) editEquipmentModal.classList.remove('hidden');
         }
@@ -3328,7 +3210,7 @@
         async function salvarEdicaoEquipamento() {
             const newFrota = editEquipmentFrotaInput?.value.trim();
             const newTipo = editEquipmentTipoInput?.value.trim();
-            const newColor = editEquipmentTipoColorInput?.value; // NEW: Get selected background color
+            const newColor = editEquipmentTipoColorInput?.value;
             const newFrenteName = editEquipmentFrenteSelect?.value;
 
             if (!loggedInUser || !hasManagerPrivileges()) {
@@ -3341,9 +3223,8 @@
                 return;
             }
 
-            // Global duplicate check for newFrota, excluding the original equipment's frota
             const existingEquipment = findEquipmentByFrota(newFrota, true, editingEquipmentData.originalFrota);
-            if (existingEquipment && existingEquipment.frente !== newFrenteName) { // Allow same frota if it's the same equipment in the same front
+            if (existingEquipment && existingEquipment.frente !== newFrenteName) {
                 showMessage("Frota Repetida", `A frota ${newFrota} já está cadastrada na equipe "${existingEquipment.frente}".`);
                 return;
             }
@@ -3360,23 +3241,19 @@
 
             try {
                 if (originalFront.name === newFrenteName) {
-                    // Update within the same front
                     originalFront.equipamentos[editingEquipmentData.originalEquipmentIndex] = updatedEquipment;
                     await setDoc(doc(db, 'fronts', originalFront.name), originalFront);
                     showMessage("Sucesso", `Equipamento ${newFrota} atualizado na equipe "${newFrenteName}".`);
                 } else {
-                    // Move to a new front
                     const newFront = frentes.find(f => f.name === newFrenteName);
                     if (!newFront) {
                         showMessage("Erro", "Equipe de destino não encontrada.");
                         return;
                     }
 
-                    // Remove from original front
                     originalFront.equipamentos.splice(editingEquipmentData.originalEquipmentIndex, 1);
                     await setDoc(doc(db, 'fronts', originalFront.name), originalFront);
 
-                    // Add to new front
                     if (!newFront.equipamentos) {
                         newFront.equipamentos = [];
                     }
@@ -3386,7 +3263,6 @@
                     showMessage("Sucesso", `Equipamento ${newFrota} movido para a equipe "${newFrenteName}".`);
                 }
                 if (editEquipmentModal) editEquipmentModal.classList.add('hidden');
-                // No need to call listarFrentes() here, onSnapshot will do it automatically
             } catch (error) {
                 console.error("ERROR DEBUG: Erro ao salvar edição do equipamento:", error);
                 showMessage("Erro ao Salvar", `Erro ao salvar alterações do equipamento: ${error.message}`);
