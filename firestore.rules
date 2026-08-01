@@ -1,0 +1,48 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Sessão Firebase anônima já conta como autenticada.
+    function autenticado() {
+      return request.auth != null;
+    }
+
+    // Modo antigo do sistema: o app entra anonimamente e valida usuário/senha
+    // lendo a coleção users no próprio aplicativo.
+    match /users/{userId} {
+      allow read: if autenticado();
+      allow write: if autenticado();
+    }
+
+    match /calls/{callId} {
+      allow read: if true;
+      allow write: if autenticado();
+    }
+
+    match /estoque/{pecaId} {
+      allow read, write: if autenticado();
+
+      match /movimentacoes/{movId} {
+        allow read, write: if autenticado();
+      }
+    }
+
+    match /fronts/{frontId} {
+      allow read, write: if autenticado();
+    }
+
+    match /loginRequests/{requestId} {
+      allow create: if autenticado();
+      allow read, update, delete: if false;
+    }
+
+    match /userProfiles/{uid} {
+      allow read, write: if autenticado();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
